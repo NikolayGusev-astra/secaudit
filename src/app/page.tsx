@@ -131,7 +131,13 @@ export default function SecurityAuditTool() {
 
     try {
       if (format === 'md') {
-        const response = await fetch(`/api/security/report?scanId=${scanResult.id}`)
+        const response = await fetch('/api/security/report', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(scanResult),
+        })
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')

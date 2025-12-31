@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 
 function generateMarkdownReport(scan: any) {
   const date = new Date().toLocaleDateString('ru-RU', {
@@ -257,100 +256,39 @@ If you have questions about this report or need help fixing vulnerabilities:
   return report
 }
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const scanId = searchParams.get('scanId')
-
+export async function POST(request: NextRequest) {
   console.log('=== API REPORT REQUEST ===')
-  console.log('Report request received for scanId:', scanId)
-  console.log('Database URL configured:', !!process.env.DATABASE_URL)
-  console.log('Database URL preview:', process.env.DATABASE_URL?.substring(0, 30) + '...')
-
-  if (!scanId) {
-    console.log('❌ scanId parameter is missing')
-    return NextResponse.json(
-      { error: 'scanId parameter is required' },
-      { status: 400 }
-    )
-  }
+  console.log('Report generation request received')
 
   try {
-    console.log('🔍 Attempting database connection...')
+    const scanData = await request.json()
 
-    // Try to get scan from database first
-    let scan = null
-    let databaseError = false
+    console.log('📋 Received scan data for report generation')
+    console.log('📊 Scan data summary:', {
+      id: scanData.id,
+      url: scanData.url,
+      domain: scanData.domain,
+      overallScore: scanData.overallScore,
+      riskLevel: scanData.riskLevel,
+      vulnerabilitiesCount: scanData.vulnerabilities?.length || 0,
+      sslCheck: !!scanData.sslCheck,
+      headersCheck: !!scanData.headersCheck,
+      dnsCheck: !!scanData.dnsCheck,
+      performance: !!scanData.performance,
+      portScansCount: scanData.portScans?.length || 0,
+    })
 
-    try {
-      console.log('📡 Connecting to Prisma client...')
-      console.log('🔍 Executing database query for scanId:', scanId)
-
-      const startTime = Date.now()
-      scan = await db.securityScan.findUnique({
-        where: { id: scanId },
-        include: {
-          sslCheck: true,
-          headersCheck: true,
-          dnsCheck: true,
-          performance: true,
-          vulnerabilities: true,
-          portScans: true,
-        },
-      })
-      const queryTime = Date.now() - startTime
-
-      console.log('✅ Database query completed in', queryTime, 'ms')
-      console.log('📊 Scan found:', !!scan)
-
-      if (scan) {
-        console.log('📋 Scan details:', {
-          id: scan.id,
-          url: scan.url,
-          domain: scan.domain,
-          status: scan.status,
-          overallScore: scan.overallScore,
-          riskLevel: scan.riskLevel,
-          vulnerabilitiesCount: scan.vulnerabilities?.length || 0,
-          sslCheck: !!scan.sslCheck,
-          headersCheck: !!scan.headersCheck,
-          dnsCheck: !!scan.dnsCheck,
-          performance: !!scan.performance,
-          portScansCount: scan.portScans?.length || 0,
-        })
-      }
-
-    } catch (dbError) {
-      console.error('❌ Database retrieval failed:', dbError)
-      console.error('🔍 Database error details:', {
-        name: dbError.name,
-        message: dbError.message,
-        code: dbError.code,
-        meta: dbError.meta,
-      })
-      databaseError = true
-    }
-
-    if (!scan) {
-      if (databaseError) {
-        console.log('⚠️ Database unavailable, returning 503')
-        return NextResponse.json(
-          {
-            error: 'Report generation unavailable',
-            details: 'Database not configured. Reports can only be generated when database is available.'
-          },
-          { status: 503 }
-        )
-      }
-      console.log('❌ Scan not found in database')
+    if (!scanData || !scanData.id || !scanData.url) {
+      console.log('❌ Invalid scan data provided')
       return NextResponse.json(
-        { error: 'Scan not found', details: `Scan ID: ${scanId}` },
-        { status: 404 }
+        { error: 'Invalid scan data', details: 'Scan data must include id, url, and domain' },
+        { status: 400 }
       )
     }
 
     console.log('📝 Generating markdown report...')
-    const markdown = generateMarkdownReport(scan)
-    const filename = `security-report-${scan.domain}-${new Date().toISOString().split('T')[0]}.md`
+    const markdown = generateMarkdownReport(scanData)
+    const filename = `security-report-${scanData.domain}-${new Date().toISOString().split('T')[0]}.md`
 
     console.log('✅ Report generated successfully')
     console.log('📄 Report filename:', filename)
