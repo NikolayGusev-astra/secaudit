@@ -1010,7 +1010,7 @@ async function scanVulnerabilities(url: string, domain: string) {
       if (!dnsInfo.hasSPF) {
         vulnerabilities.push({
           type: 'EMAIL_SECURITY',
-          severity: 'HIGH',
+          severity: 'LOW',
           title: 'Missing SPF Record',
           description: 'Sender Policy Framework (SPF) record is not configured. This can allow email spoofing and phishing attacks.',
           recommendation: 'Add SPF record to your DNS: v=spf1 include:_spf.google.com ~all (adjust for your email provider).',
@@ -1019,7 +1019,7 @@ async function scanVulnerabilities(url: string, domain: string) {
       } else if (!dnsInfo.spfValid) {
         vulnerabilities.push({
           type: 'EMAIL_SECURITY',
-          severity: 'MEDIUM',
+          severity: 'LOW',
           title: 'Weak SPF Configuration',
           description: 'SPF record exists but uses weak policy (allows all senders with ~all or -all).',
           recommendation: 'Strengthen SPF policy by replacing ~all with -all to reject unauthorized senders.',
@@ -1030,7 +1030,7 @@ async function scanVulnerabilities(url: string, domain: string) {
       if (!dnsInfo.hasDMARC) {
         vulnerabilities.push({
           type: 'EMAIL_SECURITY',
-          severity: 'HIGH',
+          severity: 'LOW',
           title: 'Missing DMARC Record',
           description: 'Domain-based Message Authentication, Reporting and Conformance (DMARC) record is not configured.',
           recommendation: 'Add DMARC record: v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com',
@@ -1039,7 +1039,7 @@ async function scanVulnerabilities(url: string, domain: string) {
       } else if (!dnsInfo.dmarcValid) {
         vulnerabilities.push({
           type: 'EMAIL_SECURITY',
-          severity: 'MEDIUM',
+          severity: 'LOW',
           title: 'Weak DMARC Policy',
           description: `DMARC policy is set to '${dnsInfo.dmarcPolicy}' which may not provide adequate protection.`,
           recommendation: 'Set DMARC policy to p=reject for maximum protection.',
@@ -1050,7 +1050,7 @@ async function scanVulnerabilities(url: string, domain: string) {
       if (!dnsInfo.hasDKIM) {
         vulnerabilities.push({
           type: 'EMAIL_SECURITY',
-          severity: 'MEDIUM',
+          severity: 'LOW',
           title: 'Missing DKIM Configuration',
           description: 'DomainKeys Identified Mail (DKIM) is not configured for email authentication.',
           recommendation: 'Configure DKIM with your email provider (Google Workspace, Office 365, etc.).',
