@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { checkVulnerability } from '@/lib/vulnerability-db'
 
 // Helper function to parse URL and extract domain
 function parseUrl(url: string) {
@@ -917,23 +918,23 @@ async function scanVulnerabilities(url: string, domain: string) {
           if (versionMatch) {
             const version = versionMatch[1]
 
-            // Check for CVEs in this library version
-            const cveResult = await checkLibraryCVEs(name, version)
+            // Check for CVEs in this library version using embedded database
+            const cveResult = checkVulnerability(name, version)
 
-            if (cveResult.hasVulnerabilities) {
+            if (cveResult) {
               vulnerabilities.push({
                 type: 'VULNERABLE_SOFTWARE',
                 severity: cveResult.severity,
                 title: `${name} ${version} has Known Vulnerabilities`,
-                description: `Detected ${name} version ${version} with ${cveResult.totalCount} known security vulnerabilities (${cveResult.criticalCount} critical).`,
-                recommendation: `Update ${name} to the latest stable version immediately. Known vulnerabilities include: ${cveResult.details.map(v => v.id).join(', ')}.`,
+                description: `Detected ${name} version ${version} with known security vulnerability: ${cveResult.cve}.`,
+                recommendation: `Update ${name} to the latest stable version immediately. Vulnerability type: ${cveResult.type}.`,
                 owaspCategory: 'A06',
                 evidence: {
                   library: name,
                   version: version,
-                  cveCount: cveResult.totalCount,
-                  criticalCount: cveResult.criticalCount,
-                  vulnerabilities: cveResult.details
+                  cve: cveResult.cve,
+                  severity: cveResult.severity,
+                  type: cveResult.type
                 }
               })
             } else {
