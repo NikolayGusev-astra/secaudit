@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  compress: true, // Enable GZIP compression
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
