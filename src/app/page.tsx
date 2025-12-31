@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Shield, AlertTriangle, CheckCircle, XCircle, Clock, Server, Globe, Lock, Zap, Eye, Bug, Mail, Key, Download, FileText, Database } from 'lucide-react'
@@ -125,6 +125,10 @@ export default function SecurityAuditTool() {
   const [loading, setLoading] = useState(false)
   const [scanResult, setScanResult] = useState<SecurityScan | null>(null)
   const [error, setError] = useState('')
+
+  const handleDownloadMarkdown = useCallback(() => downloadReport('md'), [scanResult])
+  const handleDownloadJSON = useCallback(() => downloadReport('json'), [scanResult])
+  const handleDownloadCSV = useCallback(() => downloadReport('csv'), [scanResult])
 
   const downloadReport = async (format: 'md' | 'json' | 'csv') => {
     if (!scanResult) return
@@ -320,15 +324,15 @@ export default function SecurityAuditTool() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => downloadReport('md')}>
+                      <DropdownMenuItem onClick={handleDownloadMarkdown}>
                         <FileText className="h-4 w-4 mr-2" />
                         Markdown Report
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => downloadReport('json')}>
+                      <DropdownMenuItem onClick={handleDownloadJSON}>
                         <Database className="h-4 w-4 mr-2" />
                         JSON Export
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => downloadReport('csv')}>
+                      <DropdownMenuItem onClick={handleDownloadCSV}>
                         <Download className="h-4 w-4 mr-2" />
                         CSV Export
                       </DropdownMenuItem>
