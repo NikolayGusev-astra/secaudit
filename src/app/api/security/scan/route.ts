@@ -1313,6 +1313,11 @@ export async function GET(request: NextRequest) {
 
     try {
       // Try to save scan to database (optional)
+      // Skip database save if no database connection is configured
+      if (!process.env.DATABASE_URL || process.env.DATABASE_URL === '') {
+        throw new Error('Database not configured, skipping persistence')
+      }
+
       scan = await db.securityScan.create({
         data: {
           url: url,
