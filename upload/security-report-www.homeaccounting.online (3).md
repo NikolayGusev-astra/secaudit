@@ -1,0 +1,1 @@
+{"error":"Failed to generate report","details":"scan.sslCheck.issues.map is not a function. (In 'scan.sslCheck.issues.map((issue)=>`- ${issue}`)', 'scan.sslCheck.issues.map' is undefined)"}

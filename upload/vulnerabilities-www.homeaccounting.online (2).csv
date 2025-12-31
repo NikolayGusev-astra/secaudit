@@ -1,0 +1,8 @@
+Type	Severity	Title	Description	Recommendation	OWASP Category
+XSS	MEDIUM	"Inline Event Handlers Detected"	"Found 13 inline event handler(s) or javascript: protocol usage, which can be XSS vectors."	"Remove inline event handlers and use event listeners instead. Avoid javascript: protocol in href attributes."	A03
+INFORMATION_DISCLOSURE	INFO	"Meta Author Tag"	"Meta tags can disclose information about the technology stack or author."	"Consider removing unnecessary meta tags that disclose implementation details."	A01
+INFORMATION_DISCLOSURE	LOW	"Server Technology Disclosure"	"Server header reveals: Vercel"	"Configure server to hide or minimize server information in headers."	A01
+MISCONFIGURATION	MEDIUM	"Overly Permissive CORS Policy"	"CORS allows requests from any origin (*), which may be too permissive."	"Restrict CORS to specific, trusted origins only."	
+MISCONFIGURATION	MEDIUM	"External Resource Missing SRI"	"External resource (https://z-cdn.chatglm.cn/z-ai/static/logo.svg) is loaded without Subresource Integrity (SRI) check."	"Add integrity attribute with SHA-256/384/512 hash to prevent CDN compromise attacks."	
+MISCONFIGURATION	MEDIUM	"No WAF Detected"	"No Web Application Firewall detected. This may leave to application vulnerable to automated attacks."	"Consider implementing a WAF (Cloudflare, AWS WAF, ModSecurity, etc.) to protect against common attacks."	
+MISCONFIGURATION	LOW	"Missing Open Graph Image"	"Missing og:image meta tag may result in poor social media sharing experience."	"Add Open Graph image tag: <meta property=""og:image"" content=""https://example.com/image.jpg"">"	

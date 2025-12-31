@@ -1,0 +1,317 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Security Audit Models
+
+model SecurityScan {
+  id            String             @id @default(cuid())
+  url           String
+  domain        String
+  status        ScanStatus         @default(PENDING)
+  overallScore  Int                // 0-100 security score
+  riskLevel     RiskLevel          @default(UNKNOWN)
+  startedAt     DateTime           @default(now())
+  completedAt   DateTime?
+  sslCheck      SSLCheck?
+  headersCheck  SecurityHeaderCheck?
+  dnsCheck      DNSCheck?
+  performance   PerformanceCheck?
+  vulnerabilities VulnerabilityCheck[]
+  portScans     PortScan[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([domain])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SSLCheck {
+  id                String   @id @default(cuid())
+  scanId            String   @unique
+  scan              SecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  
+  // Certificate Details
+  hasCertificate    Boolean  @default(false)
+  issuer            String?
+  subject           String?
+  validFrom         DateTime?
+  validTo           DateTime?
+  daysUntilExpiry   Int?
+  
+  // Certificate Validation
+  isValid           Boolean  @default(false)
+  isSelfSigned      Boolean  @default(false)
+  isExpired         Boolean  @default(false)
+  isTrusted         Boolean  @default(false)
+  
+  // Protocol Support
+  tlsVersion        String?  // TLS 1.2, TLS 1.3
+  tlsVersions       String?  // JSON array of supported versions
+  
+  // Cipher Suite
+  cipherSuite       String?
+  hasWeakCiphers    Boolean  @default(false)
+  
+  // Certificate Chain
+  chainLength       Int?
+  hasFullChain      Boolean  @default(false)
+  
+  // Security Features
+  hasOCSPStapling   Boolean  @default(false)
+  hasCT            Boolean  @default(false) // Certificate Transparency
+  
+  // Issues
+  issues            String?  // JSON array of issues
+  
+  score             Int      @default(0) // 0-100
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model SecurityHeaderCheck {
+  id              String   @id @default(cuid())
+  scanId          String   @unique
+  scan            SecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  
+  // Important Security Headers
+  hasCSP          Boolean  @default(false)
+  cspValue        String?
+  hasHSTS         Boolean  @default(false)
+  hstsValue       String?
+  hstsMaxAge      Int?
+  hasHSTSIncludeSubdomains Boolean @default(false)
+  hasHSTSPreload  Boolean  @default(false)
+  
+  hasXFrameOptions Boolean @default(false)
+  xFrameOptions   String?
+  hasXContentTypeOptions Boolean @default(false)
+  
+  hasXSSProtection Boolean @default(false)
+  xssProtection   String?
+  
+  hasReferrerPolicy Boolean @default(false)
+  referrerPolicy  String?
+  
+  hasPermissionsPolicy Boolean @default(false)
+  permissionsPolicy String?
+  
+  hasStrictTransportSecurity Boolean @default(false)
+  
+  // Other Headers
+  hasServerHeader Boolean @default(false)
+  serverValue    String?
+  hasXPoweredBy  Boolean @default(false)
+  
+  missingHeaders String? // JSON array of missing important headers
+  issues         String? // JSON array of issues
+  
+  score          Int      @default(0) // 0-100
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model DNSCheck {
+  id              String   @id @default(cuid())
+  scanId          String   @unique
+  scan            SecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  
+  // DNS Records
+  hasARecord      Boolean  @default(false)
+  hasAAAARecord   Boolean  @default(false)
+  hasMXRecord     Boolean  @default(false)
+  hasTXTRecord    Boolean  @default(false)
+  hasNSRecord     Boolean  @default(false)
+  
+  // Email Security
+  hasSPF          Boolean  @default(false)
+  spfRecord       String?
+  spfValid        Boolean  @default(false)
+  
+  hasDMARC        Boolean  @default(false)
+  dmarcRecord     String?
+  dmarcPolicy     String? // none, quarantine, reject
+  dmarcValid      Boolean  @default(false)
+  
+  hasDKIM         Boolean  @default(false)
+  
+  // DNS Security
+  hasDNSSEC       Boolean  @default(false)
+  
+  // DNS Issues
+  dnsRecords      String? // JSON array of all DNS records
+  issues          String? // JSON array of issues
+  
+  score           Int      @default(0) // 0-100
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model PerformanceCheck {
+  id                String   @id @default(cuid())
+  scanId            String   @unique
+  scan              SecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  
+  // Performance Metrics
+  statusCode        Int      @default(0)
+  responseTime      Int      // milliseconds
+  ttfb              Int?     // Time to First Byte
+  domContentLoaded  Int?     // milliseconds
+  loadComplete      Int?     // milliseconds
+  
+  // Size Metrics
+  totalSize         Int?     // bytes
+  htmlSize          Int?
+  cssSize           Int?
+  jsSize            Int?
+  imageSize         Int?
+  
+  // Resource Counts
+  totalResources    Int?
+  scriptCount       Int?
+  stylesheetCount   Int?
+  imageCount        Int?
+  
+  // Compression
+  hasGzip           Boolean  @default(false)
+  hasBrotli         Boolean  @default(false)
+  compressionSavings Int?
+  
+  // Caching
+  hasCacheControl   Boolean  @default(false)
+  hasETag           Boolean  @default(false)
+  hasLastModified   Boolean  @default(false)
+  
+  // HTTP Version
+  httpVersion       String? // HTTP/1.1, HTTP/2, HTTP/3
+  
+  // Recommendations
+  recommendations    String? // JSON array of recommendations
+  
+  score             Int      @default(0) // 0-100
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model VulnerabilityCheck {
+  id              String   @id @default(cuid())
+  scanId          String
+  scan            SecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  
+  type            VulnerabilityType
+  severity        Severity
+  title           String
+  description     String
+  url             String?
+  evidence        String?  // JSON with detailed evidence
+  
+  // OWASP Category
+  owaspCategory   String?  // A01, A02, etc.
+  
+  // Recommendation
+  recommendation   String
+  cveId           String?  // If applicable
+  
+  // Status
+  isFalsePositive Boolean  @default(false)
+  isConfirmed     Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+}
+
+model PortScan {
+  id              String   @id @default(cuid())
+  scanId          String
+  scan            SecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  
+  port            Int
+  protocol        String   // tcp, udp
+  state           String   // open, closed, filtered
+  service         String?
+  version         String?
+  
+  // Security Assessment
+  risk            Severity @default(INFO)
+  description     String?
+  
+  createdAt       DateTime @default(now())
+}
+
+// Enums
+
+enum ScanStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum RiskLevel {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+  UNKNOWN
+}
+
+enum VulnerabilityType {
+  XSS
+  CSRF
+  SQL_INJECTION
+  SSRF
+  OPEN_REDIRECT
+  INFORMATION_DISCLOSURE
+  MISCONFIGURATION
+  OUTDATED_SOFTWARE
+  WEAK_PASSWORD
+  INSECURE_HEADERS
+  SSL_TLS_ISSUE
+  MISSING_ENCRYPTION
+  VULNERABLE_LIBRARY
+  PORT_EXPOSED
+  DNS_ISSUE
+  OTHER
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
