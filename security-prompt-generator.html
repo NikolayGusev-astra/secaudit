@@ -183,171 +183,261 @@
     </div>
 
     <script>
+        // SNIPPET DATABASE - Code Scaffolding for Fixes
+        const SNIPPET_DATABASE = {
+            'Content-Security-Policy': {
+                'nextjs-vercel': {
+                    file: 'next.config.js',
+                    language: 'javascript',
+                    code: `// next.config.js
+module.exports = {
+  // ... other config
+  headers: async () => [
+    {
+      source: '/(.*)',
+      headers: [
+        {
+          key: 'Content-Security-Policy',
+          value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+        }
+      ]
+    }
+  ]
+}`
+                },
+                'php-laravel': {
+                    file: '.htaccess',
+                    language: 'apache',
+                    code: `# .htaccess
+<IfModule mod_headers.c>
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+</IfModule>`
+                },
+                'python-django': {
+                    file: 'settings.py',
+                    language: 'python',
+                    code: `# settings.py
+# Install django-csp first: pip install django-csp
+
+INSTALLED_APPS = [
+    # ... other apps
+    'csp',
+]
+
+MIDDLEWARE = [
+    # ... other middleware
+    'csp.middleware.CSPMiddleware',
+]
+
+# CSP Settings
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+CSP_IMG_SRC = ("'self'", "data:", "https:")
+CSP_FONT_SRC = ("'self'", "data:")`
+                },
+                'java-spring': {
+                    file: 'WebSecurityConfig.java',
+                    language: 'java',
+                    code: `// WebSecurityConfig.java
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .headers(headers ->
+                headers
+                    .contentSecurityPolicy("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+            );
+    }
+}`
+                },
+                'static-nginx': {
+                    file: 'nginx.conf',
+                    language: 'nginx',
+                    code: `# nginx.conf
+server {
+    # ... other config
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" always;
+}`
+                }
+            },
+
+            'X-Frame-Options': {
+                'nextjs-vercel': {
+                    file: 'next.config.js',
+                    language: 'javascript',
+                    code: `// next.config.js
+module.exports = {
+  headers: async () => [
+    {
+      source: '/(.*)',
+      headers: [
+        {
+          key: 'X-Frame-Options',
+          value: 'DENY'
+        }
+      ]
+    }
+  ]
+}`
+                },
+                'php-laravel': {
+                    file: '.htaccess',
+                    language: 'apache',
+                    code: `# .htaccess
+<IfModule mod_headers.c>
+  Header always set X-Frame-Options "DENY"
+</IfModule>`
+                },
+                'python-django': {
+                    file: 'settings.py',
+                    language: 'python',
+                    code: `# settings.py
+# Security settings
+SECURE_FRAME_DENY = True`
+                },
+                'java-spring': {
+                    file: 'WebSecurityConfig.java',
+                    language: 'java',
+                    code: `// WebSecurityConfig.java
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .headers(headers ->
+                headers.frameOptions().deny()
+            );
+    }
+}`
+                },
+                'static-nginx': {
+                    file: 'nginx.conf',
+                    language: 'nginx',
+                    code: `# nginx.conf
+server {
+    add_header X-Frame-Options "DENY" always;
+}`
+                }
+            },
+
+            'Inline Event Handlers': {
+                'nextjs-vercel': {
+                    file: 'Component.tsx',
+                    language: 'typescript',
+                    code: `// ❌ BAD - Inline event handler
+<div onClick={() => alert('Hello!')}>Click me</div>
+
+// ✅ GOOD - Proper React event handler
+const handleClick = () => {
+  alert('Hello!')
+}
+
+<div onClick={handleClick}>Click me</div>`
+                },
+                'php-laravel': {
+                    file: 'view.blade.php',
+                    language: 'html',
+                    code: `{{-- ❌ BAD - Inline JavaScript --}}
+<button onclick="alert('Hello!')">Click me</button>
+
+{{-- ✅ GOOD - External JavaScript --}}
+<button id="myButton">Click me</button>
+
+<script>
+document.getElementById('myButton').addEventListener('click', function() {
+    alert('Hello!');
+});
+</script>`
+                },
+                'python-django': {
+                    file: 'template.html',
+                    language: 'html',
+                    code: `{# ❌ BAD - Inline event handler #}
+<button onclick="alert('Hello!')">Click me</button>
+
+{# ✅ GOOD - Django way #}
+<button data-action="click->controller#handleClick">Click me</button>
+
+{# Or use proper event listeners in JavaScript #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelector('[data-action]').addEventListener('click', function() {
+        alert('Hello!');
+    });
+});
+</script>`
+                },
+                'java-spring': {
+                    file: 'template.html',
+                    language: 'html',
+                    code: `<!-- ❌ BAD - Inline event handler -->
+<button onclick="alert('Hello!')">Click me</button>
+
+<!-- ✅ GOOD - Thymeleaf way -->
+<button th:onclick="'javascript:alert(\\'Hello!\\')'">Click me</button>
+
+<!-- Even better: Use proper event listeners -->
+<button id="myButton">Click me</button>
+
+<script>
+document.getElementById('myButton').addEventListener('click', function() {
+    alert('Hello!');
+});
+</script>`
+                },
+                'static-nginx': {
+                    file: 'index.html',
+                    language: 'html',
+                    code: `<!-- ❌ BAD - Inline event handler -->
+<button onclick="alert('Hello!')">Click me</button>
+
+<!-- ✅ GOOD - External JavaScript -->
+<button id="myButton">Click me</button>
+
+<script src="script.js"></script>
+
+<!-- script.js -->
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('myButton').addEventListener('click', function() {
+        alert('Hello!');
+    });
+});`
+                }
+            }
+        };
+
         // TECH STACKS MATRIX - Client-side version for the HTML tool
         const TECH_STACKS_MATRIX = {
             'nextjs-vercel': {
                 name: 'Next.js / Vercel / React',
-                configFiles: 'next.config.js, vercel.json, middleware.ts',
-                headers: {
-                    locations: 'next.config.js (headers object), vercel.json (routes/headers), public/_headers',
-                    context: 'Add security headers in next.config.js under headers array or use Vercel Edge Middleware for dynamic headers.'
-                },
-                serverInfo: {
-                    locations: 'next.config.js',
-                    context: 'Set poweredByHeader: false in next.config.js to hide Next.js version disclosure.'
-                },
-                xssCode: {
-                    locations: 'src/app/**/*.tsx, src/pages/**/*.jsx, src/components/**/*.tsx',
-                    context: 'Replace onclick="func()" with onClick={handleClick}. Use React synthetic events. Sanitize HTML with DOMPurify before dangerouslySetInnerHTML.'
-                },
-                images: {
-                    locations: 'src/components/**/*.{tsx,jsx}',
-                    context: 'Use Next.js <Image /> component instead of <img>. Configure domains in next.config.js images.domains for external images.'
-                },
-                compression: {
-                    locations: 'vercel.json, next.config.js',
-                    context: 'Vercel enables compression automatically. Configure next.config.js: compress: true for additional control.'
-                },
-                caching: {
-                    locations: 'next.config.js, vercel.json',
-                    context: 'Configure Cache-Control headers in next.config.js headers array. Use Vercel Edge Middleware for dynamic caching.'
-                },
-                cors: {
-                    locations: 'next.config.js, vercel.json, middleware.ts',
-                    context: 'Configure CORS in next.config.js headers or use Vercel Edge Middleware for API routes.'
-                }
+                patterns: ['next.js', 'vercel', 'react', 'next.config.js', 'middleware.ts', 'app router'],
+                weight: 3
             },
-
             'php-laravel': {
                 name: 'PHP / Laravel / Apache',
-                configFiles: '.htaccess, httpd.conf, nginx.conf',
-                headers: {
-                    locations: '.htaccess, public/.htaccess, app/Http/Middleware/',
-                    context: 'Use Header set directives in .htaccess or create Laravel middleware classes in app/Http/Middleware/ for programmatic headers.'
-                },
-                serverInfo: {
-                    locations: '.htaccess, httpd.conf',
-                    context: 'Use Header unset Server in .htaccess or ServerTokens Prod in httpd.conf to hide server information.'
-                },
-                xssCode: {
-                    locations: 'resources/views/**/*.blade.php, app/**/*.php, public/**/*.php',
-                    context: 'Use {{ }} escaping in Blade templates. In raw PHP, use htmlspecialchars() for output. Avoid echo with user input.'
-                },
-                images: {
-                    locations: 'resources/views/**/*.blade.php, public/images/',
-                    context: 'Validate image uploads server-side. Use proper file extensions. Consider image optimization libraries like Intervention Image.'
-                },
-                compression: {
-                    locations: '.htaccess, httpd.conf, nginx.conf',
-                    context: 'Enable mod_deflate in Apache or gzip in nginx. Configure compression levels and file types.'
-                },
-                caching: {
-                    locations: '.htaccess, app/Http/Middleware/',
-                    context: 'Set Cache-Control headers in .htaccess or Laravel middleware. Use proper ETag generation.'
-                },
-                cors: {
-                    locations: 'app/Http/Middleware/Cors.php, config/cors.php',
-                    context: 'Configure CORS in Laravel using config/cors.php or custom middleware for specific routes.'
-                }
+                patterns: ['php', 'laravel', 'apache', 'composer', 'blade', '.htaccess'],
+                weight: 3
             },
-
             'python-django': {
                 name: 'Python / Django / Flask',
-                configFiles: 'settings.py, wsgi.py, nginx.conf',
-                headers: {
-                    locations: 'settings.py, middleware.py, nginx.conf',
-                    context: 'Configure SECURE_* settings in settings.py. Use custom middleware classes for additional headers. Configure nginx for proxy headers.'
-                },
-                serverInfo: {
-                    locations: 'settings.py, wsgi.py',
-                    context: 'Remove or modify SERVER header in Django settings. Use custom WSGI middleware if needed.'
-                },
-                xssCode: {
-                    locations: 'templates/**/*.html, **/*.py',
-                    context: 'Ensure auto-escaping is enabled in Django (default). Use |escape filter manually. In Flask, use autoescape=True in render_template.'
-                },
-                images: {
-                    locations: 'static/images/, media/images/',
-                    context: 'Validate image uploads in views.py. Use Django ImageField. Configure file permissions and storage.'
-                },
-                compression: {
-                    locations: 'nginx.conf, middleware.py',
-                    context: 'Enable gzip compression in nginx reverse proxy. Use Django middleware for response compression if needed.'
-                },
-                caching: {
-                    locations: 'settings.py, urls.py, nginx.conf',
-                    context: 'Configure Django caching framework. Set Cache-Control headers in views or nginx. Use ETags for static files.'
-                },
-                cors: {
-                    locations: 'settings.py, urls.py, middleware.py',
-                    context: 'Install django-cors-headers. Configure CORS_ORIGIN_WHITELIST in settings.py or use custom middleware.'
-                }
+                patterns: ['python', 'django', 'flask', 'jinja', 'settings.py', 'wsgi'],
+                weight: 3
             },
-
             'java-spring': {
                 name: 'Java / Spring Boot / Tomcat',
-                configFiles: 'application.properties, application.yml, WebSecurityConfig.java',
-                headers: {
-                    locations: 'WebSecurityConfig.java, application.yml, web.xml',
-                    context: 'Configure Spring Security httpSecurity.headers() in WebSecurityConfig.java. Use application.yml for additional headers.'
-                },
-                serverInfo: {
-                    locations: 'application.properties, server.xml',
-                    context: 'Configure server.server-header in application.properties or server.xml to hide server information.'
-                },
-                xssCode: {
-                    locations: 'src/main/resources/templates/**/*.html, **/*.jsp, **/*.java',
-                    context: 'Thymeleaf escapes by default. For JSP, use <c:out> or fn:escapeXml(). In Java code, validate and sanitize user input.'
-                },
-                images: {
-                    locations: 'src/main/resources/static/images/, **/*.java',
-                    context: 'Validate file uploads in controllers. Use Spring multipart configuration. Set proper file permissions.'
-                },
-                compression: {
-                    locations: 'application.properties, server.xml, nginx.conf',
-                    context: 'Configure compression in application.properties or nginx reverse proxy. Enable gzip for responses.'
-                },
-                caching: {
-                    locations: 'WebConfig.java, application.yml, nginx.conf',
-                    context: 'Configure Cache-Control headers in Spring MVC config. Use @Cacheable annotations. Set headers in nginx.'
-                },
-                cors: {
-                    locations: 'WebSecurityConfig.java, application.yml',
-                    context: 'Configure CORS in Spring Security with cors() method or @CrossOrigin annotations on controllers.'
-                }
+                patterns: ['java', 'spring', 'tomcat', 'jsp', 'thymeleaf', 'websecurityconfig'],
+                weight: 3
             },
-
             'static-nginx': {
                 name: 'Static HTML / Nginx',
-                configFiles: 'nginx.conf, conf.d/default.conf',
-                headers: {
-                    locations: 'nginx.conf, .htaccess',
-                    context: 'Use add_header directives in nginx.conf server block. For Apache, use Header set in .htaccess.'
-                },
-                serverInfo: {
-                    locations: 'nginx.conf',
-                    context: 'Use server_tokens off; in nginx.conf to hide version information.'
-                },
-                xssCode: {
-                    locations: 'index.html, **/*.html, **/*.js',
-                    context: 'Remove onclick="..." entirely. Move JavaScript to external files. Use addEventListener() instead of inline handlers.'
-                },
-                images: {
-                    locations: '**/*.html, images/',
-                    context: 'Use proper image formats. Implement lazy loading. Validate file paths and extensions.'
-                },
-                compression: {
-                    locations: 'nginx.conf',
-                    context: 'Enable gzip on; and configure gzip_types in nginx.conf for HTML, CSS, JS, JSON files.'
-                },
-                caching: {
-                    locations: 'nginx.conf, .htaccess',
-                    context: 'Use expires directives in nginx.conf. Set Cache-Control headers based on file types.'
-                },
-                cors: {
-                    locations: 'nginx.conf',
-                    context: 'Add Access-Control-Allow-Origin and related CORS headers in nginx.conf server block.'
-                }
+                patterns: ['nginx', 'static html', 'apache', 'html', 'javascript:', 'onclick='],
+                weight: 1
             }
         };
 
@@ -465,16 +555,47 @@
             };
         }
 
+        // Auto-detect technology stack from report content
+        function autoDetectStack(reportText) {
+            const text = reportText.toLowerCase();
+
+            // Calculate scores for each stack
+            const scores = Object.entries(TECH_STACKS_MATRIX).map(([stackKey, stackConfig]) => {
+                let score = 0;
+                stackConfig.patterns.forEach(pattern => {
+                    const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    const matches = text.match(regex);
+                    if (matches) {
+                        score += matches.length * stackConfig.weight;
+                    }
+                });
+                return { stack: stackKey, score, name: stackConfig.name };
+            });
+
+            // Return stack with highest score
+            const bestMatch = scores.reduce((best, current) =>
+                current.score > best.score ? current : best
+            );
+
+            return bestMatch.score > 0 ? bestMatch : { stack: 'nextjs-vercel', name: 'Next.js / Vercel / React', score: 0 };
+        }
+
         function generatePrompts() {
             const text = document.getElementById('inputReport').value;
             const outputArea = document.getElementById('outputArea');
-            const techStack = document.getElementById('techStack').value;
+            const selectedStack = document.getElementById('techStack').value;
             outputArea.innerHTML = '';
 
             if (!text.trim()) {
                 alert('Please paste the report content first.');
                 return;
             }
+
+            // Auto-detect stack from report content
+            const detectedStack = autoDetectStack(text);
+            const techStack = detectedStack.score > 0 ? detectedStack.stack : selectedStack;
+
+            console.log('Detected stack:', detectedStack, 'Using stack:', techStack);
 
             // Parse vulnerabilities using regex
             const vulnBlocks = text.split(/(?=### \d+\.)/g);
@@ -497,6 +618,30 @@
 
                     // Get context based on tech stack
                     const context = getContextForVulnerability(type, title, techStack);
+
+                    // Get code scaffolding if available
+                    let scaffoldingText = '';
+                    const snippetKey = title.toLowerCase().includes('content-security-policy') ? 'Content-Security-Policy' :
+                                     title.toLowerCase().includes('x-frame-options') ? 'X-Frame-Options' :
+                                     type === 'XSS' || title.toLowerCase().includes('inline') ? 'Inline Event Handlers' : null;
+
+                    if (snippetKey && SNIPPET_DATABASE[snippetKey] && SNIPPET_DATABASE[snippetKey][techStack]) {
+                        const snippet = SNIPPET_DATABASE[snippetKey][techStack];
+                        scaffoldingText = `
+
+**FIX IMPLEMENTATION (CODE SCAFFOLDING):**
+Here is the exact code pattern you should apply. Integrate this into the file ${snippet.file}.
+
+\`\`\`${snippet.language}
+${snippet.code}
+\`\`\`
+
+**Integration Instructions:**
+1. Locate the file: ${snippet.file}
+2. Add or modify the configuration as shown in the scaffolding above
+3. Ensure proper syntax and indentation
+4. Test the configuration after applying`;
+                    }
 
                     // Determine severity class
                     let cssClass = 'med';
@@ -523,7 +668,7 @@ ${rec}
 1. Analyze the relevant files in the current workspace to locate where this issue exists.
 2. Implement the necessary code or configuration changes to fix this vulnerability according to the recommendation.
 3. Ensure the fix follows best security practices (OWASP).
-4. Explain briefly what you changed and why.
+4. Explain briefly what you changed and why.${scaffoldingText}
 
 **SPECIFIC CONTEXT:**
 ${context.context}
@@ -547,6 +692,10 @@ ${context.actionType}
                     const card = document.createElement('div');
                     card.className = `prompt-card ${cssClass}`;
 
+                    const stackInfo = detectedStack.score > 0
+                        ? `🔍 Auto-detected: ${detectedStack.name} (${detectedStack.score > 3 ? 'High' : 'Medium'} confidence)`
+                        : `📋 Manual selection: ${TECH_STACKS_MATRIX[techStack].name}`;
+
                     card.innerHTML = `
                         <div class="card-header">
                             <span>${title}</span>
@@ -554,7 +703,7 @@ ${context.actionType}
                         </div>
                         <div class="card-header" style="margin-bottom: 10px;">
                             <span>Action: ${context.actionType}</span>
-                            <span>Stack: ${TECH_STACKS_MATRIX[techStack].name}</span>
+                            <span style="color: #58a6ff; font-size: 0.75rem;">${stackInfo}</span>
                         </div>
                         <div class="prompt-content">${fullPrompt}</div>
                         <button class="btn" onclick="copyToClipboard(this)">📋 Copy Prompt for Agent</button>
@@ -563,7 +712,9 @@ ${context.actionType}
                 }
             });
 
-            document.getElementById('stats').innerText = `${count} prompts generated for ${TECH_STACKS_MATRIX[techStack].name}`;
+            const stackDisplayName = TECH_STACKS_MATRIX[techStack].name;
+            const detectionNote = detectedStack.score > 0 ? ' (Auto-detected)' : ' (Manual selection)';
+            document.getElementById('stats').innerText = `${count} prompts generated for ${stackDisplayName}${detectionNote}`;
         }
 
         function copyToClipboard(btnElement) {
