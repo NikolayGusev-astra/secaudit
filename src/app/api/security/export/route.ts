@@ -31,19 +31,37 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const scan = await db.securityScan.findUnique({
-      where: { id: scanId },
-      include: {
-        sslCheck: true,
-        headersCheck: true,
-        dnsCheck: true,
-        performance: true,
-        vulnerabilities: true,
-        portScans: true,
-      },
-    })
+    // Try to get scan from database first
+    let scan = null
+    let databaseError = false
+
+    try {
+      scan = await db.securityScan.findUnique({
+        where: { id: scanId },
+        include: {
+          sslCheck: true,
+          headersCheck: true,
+          dnsCheck: true,
+          performance: true,
+          vulnerabilities: true,
+          portScans: true,
+        },
+      })
+    } catch (dbError) {
+      console.error('Database retrieval failed, export unavailable:', dbError)
+      databaseError = true
+    }
 
     if (!scan) {
+      if (databaseError) {
+        return NextResponse.json(
+          {
+            error: 'Export unavailable',
+            details: 'Database not configured. Export can only be performed when database is available.'
+          },
+          { status: 503 }
+        )
+      }
       return NextResponse.json(
         { error: 'Scan not found' },
         { status: 404 }
