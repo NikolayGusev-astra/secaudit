@@ -1002,6 +1002,63 @@ async function scanVulnerabilities(url: string, domain: string) {
     const html = await response.text()
     const headers = Object.fromEntries(response.headers.entries())
 
+    // 0. Check DNS security configuration (SPF, DMARC, DKIM)
+    // Get DNS info first
+    const dnsInfo = await checkDNS(domain)
+
+    if (dnsInfo.hasMXRecord) {
+      if (!dnsInfo.hasSPF) {
+        vulnerabilities.push({
+          type: 'EMAIL_SECURITY',
+          severity: 'HIGH',
+          title: 'Missing SPF Record',
+          description: 'Sender Policy Framework (SPF) record is not configured. This can allow email spoofing and phishing attacks.',
+          recommendation: 'Add SPF record to your DNS: v=spf1 include:_spf.google.com ~all (adjust for your email provider).',
+          owaspCategory: 'A01',
+        })
+      } else if (!dnsInfo.spfValid) {
+        vulnerabilities.push({
+          type: 'EMAIL_SECURITY',
+          severity: 'MEDIUM',
+          title: 'Weak SPF Configuration',
+          description: 'SPF record exists but uses weak policy (allows all senders with ~all or -all).',
+          recommendation: 'Strengthen SPF policy by replacing ~all with -all to reject unauthorized senders.',
+          owaspCategory: 'A01',
+        })
+      }
+
+      if (!dnsInfo.hasDMARC) {
+        vulnerabilities.push({
+          type: 'EMAIL_SECURITY',
+          severity: 'HIGH',
+          title: 'Missing DMARC Record',
+          description: 'Domain-based Message Authentication, Reporting and Conformance (DMARC) record is not configured.',
+          recommendation: 'Add DMARC record: v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com',
+          owaspCategory: 'A01',
+        })
+      } else if (!dnsInfo.dmarcValid) {
+        vulnerabilities.push({
+          type: 'EMAIL_SECURITY',
+          severity: 'MEDIUM',
+          title: 'Weak DMARC Policy',
+          description: `DMARC policy is set to '${dnsInfo.dmarcPolicy}' which may not provide adequate protection.`,
+          recommendation: 'Set DMARC policy to p=reject for maximum protection.',
+          owaspCategory: 'A01',
+        })
+      }
+
+      if (!dnsInfo.hasDKIM) {
+        vulnerabilities.push({
+          type: 'EMAIL_SECURITY',
+          severity: 'MEDIUM',
+          title: 'Missing DKIM Configuration',
+          description: 'DomainKeys Identified Mail (DKIM) is not configured for email authentication.',
+          recommendation: 'Configure DKIM with your email provider (Google Workspace, Office 365, etc.).',
+          owaspCategory: 'A01',
+        })
+      }
+    }
+
     // 1. Check for missing security headers
     const criticalHeaders = [
       { name: 'content-security-policy', type: 'INSECURE_HEADERS' },
