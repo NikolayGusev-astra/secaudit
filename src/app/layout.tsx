@@ -14,24 +14,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "Security Audit for VibeCoders",
+  description: "Professional-grade security and performance scanner. Analyze your website for vulnerabilities, security misconfigurations, and performance issues.",
+  keywords: ["Security Audit", "Vulnerability Scanner", "Website Security", "Performance Analysis", "OWASP", "Penetration Testing"],
+  authors: [{ name: "VibeCoders Team" }],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "Security Audit for VibeCoders",
+    description: "Professional-grade security and performance scanner. Analyze your website for vulnerabilities, security misconfigurations, and performance issues.",
+    url: "https://secaudit-pi.vercel.app",
+    siteName: "Security Audit for VibeCoders",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    title: "Security Audit for VibeCoders",
+    description: "Professional-grade security and performance scanner. Analyze your website for vulnerabilities, security misconfigurations, and performance issues.",
   },
   other: {
     "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
