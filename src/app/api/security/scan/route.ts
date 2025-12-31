@@ -653,6 +653,214 @@ function analyzeSocialMetadata(html: string) {
   return issues
 }
 
+// CVE Intelligence - Check vulnerabilities in detected libraries
+async function checkLibraryCVEs(libraryName: string, version: string) {
+  try {
+    // Use OSV (Open Source Vulnerabilities) API
+    const response = await fetch(`https://api.osv.dev/v1/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        package: {
+          name: libraryName,
+          ecosystem: libraryName.toLowerCase().includes('jquery') ? 'npm' :
+                     libraryName.toLowerCase().includes('bootstrap') ? 'npm' :
+                     libraryName.toLowerCase().includes('react') ? 'npm' :
+                     libraryName.toLowerCase().includes('angular') ? 'npm' :
+                     libraryName.toLowerCase().includes('vue') ? 'npm' : 'npm'
+        },
+        version: version
+      })
+    })
+
+    const data = await response.json()
+
+    if (data.vulns && data.vulns.length > 0) {
+      const criticalVulns = data.vulns.filter((v: any) => v.severity === 'CRITICAL' || v.severity === 'HIGH')
+      const hasCritical = criticalVulns.length > 0
+
+      return {
+        hasVulnerabilities: true,
+        criticalCount: criticalVulns.length,
+        totalCount: data.vulns.length,
+        severity: hasCritical ? 'CRITICAL' : 'HIGH',
+        details: data.vulns.slice(0, 3).map((v: any) => ({
+          id: v.id,
+          summary: v.summary,
+          severity: v.severity || 'UNKNOWN'
+        }))
+      }
+    }
+
+    return { hasVulnerabilities: false }
+  } catch (error) {
+    console.error('CVE check error:', error)
+    return { hasVulnerabilities: false, error: true }
+  }
+}
+
+// Deep CSP Parser - Analyze CSP directives
+function analyzeCSP(cspValue: string) {
+  const issues: any[] = []
+
+  if (!cspValue) return issues
+
+  // Parse CSP directives
+  const directives: { [key: string]: string[] } = {}
+  const parts = cspValue.split(';').map(p => p.trim())
+
+  parts.forEach(part => {
+    const [directive, ...values] = part.split(/\s+/)
+    if (directive && values.length > 0) {
+      directives[directive] = values
+    }
+  })
+
+  // Check for dangerous patterns
+  const scriptSrc = directives['script-src'] || directives['default-src'] || []
+  const styleSrc = directives['style-src'] || directives['default-src'] || []
+  const objectSrc = directives['object-src'] || directives['default-src'] || []
+
+  // Check for unsafe-inline
+  if (scriptSrc.includes("'unsafe-inline'")) {
+    issues.push({
+      type: 'MISCONFIGURATION',
+      severity: 'HIGH',
+      title: 'CSP Allows unsafe-inline for Scripts',
+      description: 'Content Security Policy allows inline scripts, which can be exploited for XSS attacks.',
+      recommendation: 'Remove \'unsafe-inline\' from script-src directive and use nonce-based or hash-based CSP.',
+      owaspCategory: 'A03',
+    })
+  }
+
+  if (styleSrc.includes("'unsafe-inline'")) {
+    issues.push({
+      type: 'MISCONFIGURATION',
+      severity: 'MEDIUM',
+      title: 'CSP Allows unsafe-inline for Styles',
+      description: 'Content Security Policy allows inline styles, which can be exploited for CSS-based attacks.',
+      recommendation: 'Remove \'unsafe-inline\' from style-src directive and use nonce-based CSP.',
+      owaspCategory: 'A03',
+    })
+  }
+
+  // Check for unsafe-eval
+  if (scriptSrc.includes("'unsafe-eval'")) {
+    issues.push({
+      type: 'MISCONFIGURATION',
+      severity: 'HIGH',
+      title: 'CSP Allows unsafe-eval',
+      description: 'Content Security Policy allows eval() and similar functions, which can be exploited.',
+      recommendation: 'Remove \'unsafe-eval\' from script-src directive.',
+      owaspCategory: 'A03',
+    })
+  }
+
+  // Check for overly permissive sources
+  const checkPermissive = (directive: string, sources: string[], directiveName: string) => {
+    if (sources.includes('*')) {
+      issues.push({
+        type: 'MISCONFIGURATION',
+        severity: 'HIGH',
+        title: `CSP Allows All Origins in ${directiveName}`,
+        description: `Content Security Policy allows all origins (*) in ${directiveName}, which defeats the purpose of CSP.`,
+        recommendation: `Replace '*' with specific trusted domains in ${directiveName} directive.`,
+        owaspCategory: 'A03',
+      })
+    }
+  }
+
+  checkPermissive('script-src', scriptSrc, 'script-src')
+  checkPermissive('style-src', styleSrc, 'style-src')
+  checkPermissive('object-src', objectSrc, 'object-src')
+
+  // Check for data: URLs (potentially dangerous)
+  const hasDataUrls = Object.values(directives).some((sources: string[]) =>
+    sources.some(src => src.includes('data:'))
+  )
+
+  if (hasDataUrls) {
+    issues.push({
+      type: 'MISCONFIGURATION',
+      severity: 'MEDIUM',
+      title: 'CSP Allows data: URLs',
+      description: 'Content Security Policy allows data: URLs, which can be exploited for XSS attacks.',
+      recommendation: 'Restrict data: URLs to specific cases or remove if not needed.',
+      owaspCategory: 'A03',
+    })
+  }
+
+  return issues
+}
+
+// Common Sensitive Files Discovery
+async function checkSensitiveFiles(baseUrl: string) {
+  const issues: any[] = []
+
+  const sensitiveFiles = [
+    '/.git/config',
+    '/.env',
+    '/.env.local',
+    '/.env.production',
+    '/debug.log',
+    '/error.log',
+    '/access.log',
+    '/readme.md',
+    '/README.md',
+    '/changelog.md',
+    '/CHANGELOG.md',
+    '/wp-admin',
+    '/admin',
+    '/administrator',
+    '/phpmyadmin',
+    '/phpMyAdmin',
+    '/.well-known/security.txt',
+    '/security.txt',
+    '/crossdomain.xml',
+    '/clientaccesspolicy.xml',
+    '/.DS_Store',
+    '/Thumbs.db'
+  ]
+
+  for (const file of sensitiveFiles) {
+    try {
+      const response = await fetch(baseUrl + file, {
+        method: 'HEAD',
+        redirect: 'manual',
+      })
+
+      // 200 OK or 403 Forbidden (exists but protected) - both indicate exposure
+      if (response.status === 200 || response.status === 403) {
+        const severity = file.includes('.env') || file.includes('log') ? 'CRITICAL' :
+                        file.includes('.git') ? 'HIGH' : 'MEDIUM'
+
+        issues.push({
+          type: 'INFORMATION_DISCLOSURE',
+          severity,
+          title: `Sensitive File Exposed: ${file}`,
+          description: `The file ${file} is accessible via web, which can leak sensitive information.`,
+          recommendation: file.includes('.git')
+            ? 'Delete .git folder from production or configure server to block .git access.'
+            : file.includes('.env')
+            ? 'Move .env files outside web root or configure server to deny access.'
+            : file.includes('log')
+            ? 'Move log files outside web root or configure server to deny access.'
+            : 'Configure server to deny access to sensitive files.',
+          owaspCategory: 'A01',
+          evidence: { url: baseUrl + file, status: response.status }
+        })
+      }
+    } catch (error) {
+      // File doesn't exist or server error - this is good
+      continue
+    }
+  }
+
+  return issues
+}
+
 // Vulnerability Scanner
 async function scanVulnerabilities(url: string, domain: string) {
   const vulnerabilities: any[] = []
@@ -665,10 +873,10 @@ async function scanVulnerabilities(url: string, domain: string) {
 
     // 1. Check for missing security headers
     const criticalHeaders = [
-      { name: 'Content-Security-Policy', type: 'INSECURE_HEADERS' },
-      { name: 'Strict-Transport-Security', type: 'INSECURE_HEADERS' },
-      { name: 'X-Frame-Options', type: 'INSECURE_HEADERS' },
-      { name: 'X-Content-Type-Options', type: 'INSECURE_HEADERS' },
+      { name: 'content-security-policy', type: 'INSECURE_HEADERS' },
+      { name: 'strict-transport-security', type: 'INSECURE_HEADERS' },
+      { name: 'x-frame-options', type: 'INSECURE_HEADERS' },
+      { name: 'x-content-type-options', type: 'INSECURE_HEADERS' },
     ]
 
     criticalHeaders.forEach(({ name, type }) => {
@@ -684,7 +892,14 @@ async function scanVulnerabilities(url: string, domain: string) {
       }
     })
 
-    // 2. Check for outdated JavaScript libraries
+    // 2. Deep CSP Analysis
+    const cspValue = headers['content-security-policy']
+    if (cspValue) {
+      const cspIssues = analyzeCSP(cspValue)
+      vulnerabilities.push(...cspIssues)
+    }
+
+    // 3. Check for outdated JavaScript libraries with CVE analysis
     const libraryPatterns = [
       { pattern: /jquery[-.](\d+\.?\d*\.?\d*)/gi, name: 'jQuery', minVersion: '3.6.0' },
       { pattern: /react[-.](\d+\.?\d*\.?\d*)/gi, name: 'React', minVersion: '18.0.0' },
@@ -693,25 +908,53 @@ async function scanVulnerabilities(url: string, domain: string) {
       { pattern: /bootstrap[-.](\d+\.?\d*\.?\d*)/gi, name: 'Bootstrap', minVersion: '5.0.0' },
     ]
 
-    libraryPatterns.forEach(({ pattern, name, minVersion }) => {
+    // Check for libraries and their CVEs
+    for (const { pattern, name, minVersion } of libraryPatterns) {
       const matches = html.match(pattern)
       if (matches) {
-        matches.forEach((match) => {
+        for (const match of matches) {
           const versionMatch = match.match(/(\d+\.?\d*\.?\d*)/)
           if (versionMatch) {
             const version = versionMatch[1]
-            vulnerabilities.push({
-              type: 'OUTDATED_SOFTWARE',
-              severity: 'MEDIUM',
-              title: `Potentially Outdated Library: ${name}`,
-              description: `Detected ${name} version ${version}. Ensure it's updated to the latest version.`,
-              recommendation: `Update ${name} to the latest stable version (${minVersion} or later) to patch known security vulnerabilities.`,
-              owaspCategory: 'A06',
-            })
+
+            // Check for CVEs in this library version
+            const cveResult = await checkLibraryCVEs(name, version)
+
+            if (cveResult.hasVulnerabilities) {
+              vulnerabilities.push({
+                type: 'VULNERABLE_SOFTWARE',
+                severity: cveResult.severity,
+                title: `${name} ${version} has Known Vulnerabilities`,
+                description: `Detected ${name} version ${version} with ${cveResult.totalCount} known security vulnerabilities (${cveResult.criticalCount} critical).`,
+                recommendation: `Update ${name} to the latest stable version immediately. Known vulnerabilities include: ${cveResult.details.map(v => v.id).join(', ')}.`,
+                owaspCategory: 'A06',
+                evidence: {
+                  library: name,
+                  version: version,
+                  cveCount: cveResult.totalCount,
+                  criticalCount: cveResult.criticalCount,
+                  vulnerabilities: cveResult.details
+                }
+              })
+            } else {
+              // Still check for outdated versions even if no CVEs
+              vulnerabilities.push({
+                type: 'OUTDATED_SOFTWARE',
+                severity: 'LOW',
+                title: `Potentially Outdated Library: ${name}`,
+                description: `Detected ${name} version ${version}. Consider updating to the latest version.`,
+                recommendation: `Update ${name} to the latest stable version (${minVersion} or later) to ensure security and performance.`,
+                owaspCategory: 'A06',
+              })
+            }
           }
-        })
+        }
       }
-    })
+    }
+
+    // 4. Check for sensitive files exposure
+    const sensitiveFileIssues = await checkSensitiveFiles(url)
+    vulnerabilities.push(...sensitiveFileIssues)
 
     // 3. Check for information disclosure in comments
     const commentPatterns = [
