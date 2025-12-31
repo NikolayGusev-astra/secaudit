@@ -223,7 +223,7 @@ export default function SecurityAuditTool() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <Shield className="h-12 w-12 text-slate-900 dark:text-slate-100" />
             <h1 className="text-5xl font-bold text-slate-900 dark:text-slate-100">
-              Security Audit Pro
+              Security Audit for VibeCoders
             </h1>
           </div>
           <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
