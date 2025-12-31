@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { SecurityReportEnricher } from '@/lib/security-report-enricher'
 
 function generateMarkdownReport(scan: any) {
   const date = new Date().toLocaleDateString('ru-RU', {
@@ -214,46 +215,32 @@ ${scan.portScans.map((port: any) => `| ${port.port} | ${port.protocol} | ${port.
 
 ---
 
-## 🤖 AI Prompts for Fixing Issues
+## 🤖 AI Prompts for Fixing Issues (Enhanced with Context)
 
-${scan.vulnerabilities && scan.vulnerabilities.length > 0 ? scan.vulnerabilities.map((v: any, i: number) => `
-### ${i + 1}. Fix: ${v.title}
+${(() => {
+  const enricher = new SecurityReportEnricher(scan)
+  const enrichedPrompts = enricher.generateEnrichedPrompts()
+
+  return enrichedPrompts.length > 0 ? enrichedPrompts.map((prompt, i) => `
+### ${prompt.id}: ${prompt.title}
+**Type:** ${prompt.type} | **Severity:** ${prompt.severity} | **Action:** ${prompt.actionRequired}
+**Likely Locations:** ${prompt.likelyLocations}
+
+**Description:** ${prompt.description}
+
+**Recommended Fix:** ${prompt.recommendedFix}
+
+**Agent Context:** ${prompt.contextForAgent}
 
 **Copy this prompt to Cursor/Cline:**
 
 \`\`\`
-Act as a Senior Security Engineer and an Expert Frontend/Backend Developer.
-
-I have run a security audit and identified the following issue in the codebase:
-
-**ISSUE TITLE:** ${v.title}
-**SEVERITY:** ${v.severity}
-**TYPE:** ${v.type}
-
-**DESCRIPTION:**
-${v.description}
-
-**RECOMMENDATION:**
-${v.recommendation}
-
-**YOUR TASK:**
-1. Analyze the relevant files in the current workspace to locate where this issue exists.
-2. Implement the necessary code or configuration changes to fix this vulnerability according to the recommendation.
-3. Ensure the fix follows best security practices (OWASP).
-4. Explain briefly what you changed and why.
-
-**Constraints:**
-- Do not ask me for permission, just fix it.
-- If the issue is in a config file (like vercel.json, next.config.js, headers), modify it directly.
-- Be precise and provide working code examples.
-- Test the changes to ensure they work correctly.
-
-**URL:** ${scan.url}
-**DOMAIN:** ${scan.domain}
+${prompt.fullPrompt}
 \`\`\`
 
-**Expected Result:** ${v.recommendation}
-`).join('\n') : '✅ No vulnerabilities found - no AI prompts needed'}
+**Expected Result:** ${prompt.recommendedFix}
+`).join('\n') : '✅ No vulnerabilities found - no AI prompts needed'
+})()}
 
 ---
 
