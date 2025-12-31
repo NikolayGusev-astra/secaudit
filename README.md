@@ -56,17 +56,67 @@ This scaffold provides a robust foundation built with:
 
 ## 🚀 Quick Start
 
+### 📋 Prerequisites
+
+- Node.js 18+ and npm/pnpm/bun
+- Supabase account (for database functionality)
+
+### 🗄️ Database Setup with Supabase
+
+1. **Create a Supabase project** at [supabase.com](https://supabase.com)
+
+2. **Run the database schema**:
+   - Go to your Supabase project dashboard
+   - Navigate to SQL Editor
+   - Copy and paste the contents of `supabase-schema.sql` from this repository
+   - Execute the SQL script to create all tables and setup
+
+3. **Configure environment variables**:
+   - Copy `.env.example` to `.env.local`
+   - Fill in your Supabase credentials:
+     ```bash
+     # Get these from your Supabase project settings
+     DATABASE_URL="postgresql://postgres:[YOUR_PASSWORD]@db.[YOUR_PROJECT_REF].supabase.co:5432/postgres"
+     NEXT_PUBLIC_SUPABASE_URL=https://[YOUR_PROJECT_REF].supabase.co
+     NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR_ANON_KEY]
+     SUPABASE_SERVICE_ROLE_KEY=[YOUR_SERVICE_ROLE_KEY]
+     ```
+
+4. **Push database schema** (optional, for local development):
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+### 🏃‍♂️ Running the Application
+
 ```bash
 # Install dependencies
+npm install
+# or
+pnpm install
+# or
 bun install
 
 # Start development server
+npm run dev
+# or
+pnpm dev
+# or
 bun run dev
 
 # Build for production
+npm run build
+# or
+pnpm build
+# or
 bun run build
 
 # Start production server
+npm start
+# or
+pnpm start
+# or
 bun start
 ```
 
