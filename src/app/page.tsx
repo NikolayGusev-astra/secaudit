@@ -208,28 +208,6 @@ ${v.recommendation}
           `"${v.severity}"`,
           `"${v.description}"`,
           `"${v.recommendation}"`,
-          `"I found this security vulnerability in my website scan:
-
-**Issue:** ${v.title}
-**Type:** ${v.type}
-**Severity:** ${v.severity}
-**Description:** ${v.description}
-**URL:** ${scanResult.url}
-
-**Current Code/Configuration:**
-[PASTE YOUR CURRENT CODE HERE]
-
-**Please help me fix this vulnerability by providing:**
-1. The specific code/configuration changes needed
-2. Step-by-step implementation instructions
-3. Any additional security measures to consider
-4. Testing steps to verify the fix
-
-**Recommendation from scan:** ${v.recommendation}
-
-Please provide a complete solution with code examples."`
-        ]) || []
-
           `"Act as a Senior Security Engineer and an Expert Frontend/Backend Developer.
 
 I have run a security audit and identified the following issue in the codebase:
