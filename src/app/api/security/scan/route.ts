@@ -340,8 +340,10 @@ async function checkPerformance(url: string) {
     else if (responseTime < 1000) score += 10
     else if (responseTime < 2000) score += 5
 
-    if (hasGzip) score += 10
-    if (hasBrotli) score += 10
+    // Award points for any compression (GZIP or Brotli)
+    if (hasGzip || hasBrotli) score += 10
+    // Extra point for having both
+    if (hasGzip && hasBrotli) score += 5
 
     score = Math.min(score, 100)
 
