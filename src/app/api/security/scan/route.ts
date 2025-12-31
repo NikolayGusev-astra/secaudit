@@ -274,9 +274,17 @@ async function checkDNS(domain: string) {
     let score = 0
     if (dnsChecks.hasARecord) score += 20
     if (dnsChecks.hasNSRecord) score += 10
-    if (dnsChecks.hasSPF && dnsChecks.spfValid) score += 20
-    if (dnsChecks.hasDMARC && dnsChecks.dmarcValid) score += 20
-    if (dnsChecks.hasDKIM) score += 15
+
+    // Only check email security if MX records exist
+    if (dnsChecks.hasMXRecord) {
+      if (dnsChecks.hasSPF && dnsChecks.spfValid) score += 20
+      if (dnsChecks.hasDMARC && dnsChecks.dmarcValid) score += 20
+      if (dnsChecks.hasDKIM) score += 15
+    } else {
+      // If no MX records, email security is not applicable
+      dnsChecks.issues.push('No MX records found - email security (SPF, DMARC, DKIM) is not applicable')
+    }
+
     if (dnsChecks.hasMXRecord) score += 15
 
     dnsChecks.score = score
