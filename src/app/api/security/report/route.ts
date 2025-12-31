@@ -214,6 +214,41 @@ ${scan.portScans.map((port: any) => `| ${port.port} | ${port.protocol} | ${port.
 
 ---
 
+## 🤖 AI Prompts for Fixing Issues
+
+${scan.vulnerabilities && scan.vulnerabilities.length > 0 ? scan.vulnerabilities.map((v: any, i: number) => `
+### ${i + 1}. Fix: ${v.title}
+
+**Copy this prompt to your AI assistant:**
+
+\`\`\`
+I found this security vulnerability in my website scan:
+
+**Issue:** ${v.title}
+**Type:** ${v.type}
+**Severity:** ${v.severity}
+**Description:** ${v.description}
+**URL:** ${scan.url}
+
+**Current Code/Configuration:**
+[PASTE YOUR CURRENT CODE HERE]
+
+**Please help me fix this vulnerability by providing:**
+1. The specific code/configuration changes needed
+2. Step-by-step implementation instructions
+3. Any additional security measures to consider
+4. Testing steps to verify the fix
+
+**Recommendation from scan:** ${v.recommendation}
+
+Please provide a complete solution with code examples.
+\`\`\`
+
+**Expected Result:** ${v.recommendation}
+`).join('\n') : '✅ No vulnerabilities found - no AI prompts needed'}
+
+---
+
 ## 📝 Next Steps & Recommendations
 
 ### Immediate Actions (CRITICAL):

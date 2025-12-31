@@ -151,15 +151,83 @@ export default function SecurityAuditTool() {
         a.click()
         document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
-      } else {
-        const response = await fetch(`/api/security/export?scanId=${scanResult.id}&format=${format}`)
-        const blob = await response.blob()
+      } else if (format === 'json') {
+        // Generate JSON with AI prompts
+        const jsonData = {
+          scan: scanResult,
+          aiPrompts: scanResult.vulnerabilities?.map((v: any) => ({
+            issue: v.title,
+            type: v.type,
+            severity: v.severity,
+            prompt: `I found this security vulnerability in my website scan:
+
+**Issue:** ${v.title}
+**Type:** ${v.type}
+**Severity:** ${v.severity}
+**Description:** ${v.description}
+**URL:** ${scanResult.url}
+
+**Current Code/Configuration:**
+[PASTE YOUR CURRENT CODE HERE]
+
+**Please help me fix this vulnerability by providing:**
+1. The specific code/configuration changes needed
+2. Step-by-step implementation instructions
+3. Any additional security measures to consider
+4. Testing steps to verify the fix
+
+**Recommendation from scan:** ${v.recommendation}
+
+Please provide a complete solution with code examples.`
+          })) || []
+        }
+
+        const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' })
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = format === 'json'
-          ? `security-scan-${scanResult.domain}.json`
-          : `vulnerabilities-${scanResult.domain}.csv`
+        a.download = `security-scan-${scanResult.domain}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      } else if (format === 'csv') {
+        // Generate CSV with AI prompts
+        const headers = ['Issue', 'Type', 'Severity', 'Description', 'Recommendation', 'AI_Prompt']
+        const rows = scanResult.vulnerabilities?.map((v: any) => [
+          `"${v.title}"`,
+          `"${v.type}"`,
+          `"${v.severity}"`,
+          `"${v.description}"`,
+          `"${v.recommendation}"`,
+          `"I found this security vulnerability in my website scan:
+
+**Issue:** ${v.title}
+**Type:** ${v.type}
+**Severity:** ${v.severity}
+**Description:** ${v.description}
+**URL:** ${scanResult.url}
+
+**Current Code/Configuration:**
+[PASTE YOUR CURRENT CODE HERE]
+
+**Please help me fix this vulnerability by providing:**
+1. The specific code/configuration changes needed
+2. Step-by-step implementation instructions
+3. Any additional security measures to consider
+4. Testing steps to verify the fix
+
+**Recommendation from scan:** ${v.recommendation}
+
+Please provide a complete solution with code examples."`
+        ]) || []
+
+        const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `vulnerabilities-${scanResult.domain}.csv`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
