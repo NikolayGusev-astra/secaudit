@@ -152,33 +152,41 @@ export default function SecurityAuditTool() {
         document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
       } else if (format === 'json') {
-        // Generate JSON with AI prompts
+        // Generate JSON with AI prompts optimized for Cursor/Cline
         const jsonData = {
           scan: scanResult,
           aiPrompts: scanResult.vulnerabilities?.map((v: any) => ({
             issue: v.title,
             type: v.type,
             severity: v.severity,
-            prompt: `I found this security vulnerability in my website scan:
+            prompt: `Act as a Senior Security Engineer and an Expert Frontend/Backend Developer.
 
-**Issue:** ${v.title}
-**Type:** ${v.type}
-**Severity:** ${v.severity}
-**Description:** ${v.description}
+I have run a security audit and identified the following issue in the codebase:
+
+**ISSUE TITLE:** ${v.title}
+**SEVERITY:** ${v.severity}
+**TYPE:** ${v.type}
+
+**DESCRIPTION:**
+${v.description}
+
+**RECOMMENDATION:**
+${v.recommendation}
+
+**YOUR TASK:**
+1. Analyze the relevant files in the current workspace to locate where this issue exists.
+2. Implement the necessary code or configuration changes to fix this vulnerability according to the recommendation.
+3. Ensure the fix follows best security practices (OWASP).
+4. Explain briefly what you changed and why.
+
+**Constraints:**
+- Do not ask me for permission, just fix it.
+- If the issue is in a config file (like vercel.json, next.config.js, headers), modify it directly.
+- Be precise and provide working code examples.
+- Test the changes to ensure they work correctly.
+
 **URL:** ${scanResult.url}
-
-**Current Code/Configuration:**
-[PASTE YOUR CURRENT CODE HERE]
-
-**Please help me fix this vulnerability by providing:**
-1. The specific code/configuration changes needed
-2. Step-by-step implementation instructions
-3. Any additional security measures to consider
-4. Testing steps to verify the fix
-
-**Recommendation from scan:** ${v.recommendation}
-
-Please provide a complete solution with code examples.`
+**DOMAIN:** ${scanResult.domain}`
           })) || []
         }
 
@@ -220,6 +228,36 @@ Please provide a complete solution with code examples.`
 **Recommendation from scan:** ${v.recommendation}
 
 Please provide a complete solution with code examples."`
+        ]) || []
+
+          `"Act as a Senior Security Engineer and an Expert Frontend/Backend Developer.
+
+I have run a security audit and identified the following issue in the codebase:
+
+**ISSUE TITLE:** ${v.title}
+**SEVERITY:** ${v.severity}
+**TYPE:** ${v.type}
+
+**DESCRIPTION:**
+${v.description}
+
+**RECOMMENDATION:**
+${v.recommendation}
+
+**YOUR TASK:**
+1. Analyze the relevant files in the current workspace to locate where this issue exists.
+2. Implement the necessary code or configuration changes to fix this vulnerability according to the recommendation.
+3. Ensure the fix follows best security practices (OWASP).
+4. Explain briefly what you changed and why.
+
+**Constraints:**
+- Do not ask me for permission, just fix it.
+- If the issue is in a config file (like vercel.json, next.config.js, headers), modify it directly.
+- Be precise and provide working code examples.
+- Test the changes to ensure they work correctly.
+
+**URL:** ${scanResult.url}
+**DOMAIN:** ${scanResult.domain}"`
         ]) || []
 
         const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
