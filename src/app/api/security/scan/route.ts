@@ -951,17 +951,24 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const url = searchParams.get('url')
 
+  console.log('API scan request received for URL:', url)
+
   if (!url) {
+    console.log('URL parameter is missing')
     return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 })
   }
 
   const parsedUrl = parseUrl(url)
   if (!parsedUrl) {
+    console.log('Invalid URL format:', url)
     return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
   }
 
+  console.log('Parsed URL:', parsedUrl)
+
   try {
     // Run all checks in parallel
+    console.log('Starting parallel checks...')
     const [
       sslCheck,
       headersCheck,
@@ -978,10 +985,17 @@ export async function GET(request: NextRequest) {
       scanPorts(parsedUrl.domain),
     ])
 
+    console.log('All checks completed')
+    console.log('SSL Check:', sslCheck)
+    console.log('Headers Check:', headersCheck)
+    console.log('DNS Check:', dnsCheck)
+    console.log('Performance Check:', performance)
+
     // Check if website is accessible
     const isAccessible = sslCheck.hasCertificate || sslCheck.isValid || performance.statusCode > 0
 
     if (!isAccessible) {
+      console.log('Website is not accessible')
       return NextResponse.json({
         error: 'Website is not accessible. Please check the URL and ensure the website is online.',
         details: {
@@ -1023,6 +1037,8 @@ export async function GET(request: NextRequest) {
     else if (overallScore < 80) riskLevel = 'LOW'
     else riskLevel = 'INFO'
 
+    console.log('Calculated scores and risk level:', { averageScore, penalty, overallScore, riskLevel })
+
     // Convert arrays to JSON strings for database
     const sslCheckData = {
       ...sslCheck,
@@ -1045,6 +1061,8 @@ export async function GET(request: NextRequest) {
       ...performance,
       recommendations: JSON.stringify(performance.recommendations),
     }
+
+    console.log('Preparing to save to database...')
 
     // Save scan to database
     const scan = await db.securityScan.create({
@@ -1090,6 +1108,8 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    console.log('Scan saved to database with ID:', scan.id)
+
     // Parse JSON strings back to arrays for response
     const response = {
       id: scan.id,
@@ -1125,9 +1145,12 @@ export async function GET(request: NextRequest) {
       portScans: scan.portScans,
     }
 
+    console.log('Final response prepared:', response)
+
     return NextResponse.json(response)
   } catch (error) {
     console.error('Security scan error:', error)
+    console.error('Error stack:', error.stack)
     return NextResponse.json(
       { error: 'Failed to perform security scan. The website might be inaccessible or there was a server error.' },
       { status: 500 }
