@@ -401,6 +401,124 @@ server {
     }
   },
 
+  'Referrer-Policy': {
+    'nextjs-vercel': {
+      file: 'next.config.js',
+      language: 'javascript',
+      code: `// next.config.js
+module.exports = {
+  headers: async () => [
+    {
+      source: '/(.*)',
+      headers: [
+        {
+          key: 'Referrer-Policy',
+          value: 'strict-origin-when-cross-origin'
+        }
+      ]
+    }
+  ]
+}`
+    },
+    'php-laravel': {
+      file: '.htaccess',
+      language: 'apache',
+      code: `# .htaccess
+<IfModule mod_headers.c>
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>`
+    },
+    'python-django': {
+      file: 'settings.py',
+      language: 'python',
+      code: `# settings.py
+# Security settings
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'`
+    },
+    'java-spring': {
+      file: 'application.properties',
+      language: 'properties',
+      code: `# application.properties
+# Referrer Policy settings
+server.servlet.session.cookie.http-only=true
+server.servlet.session.cookie.secure=true`
+    },
+    'static-nginx': {
+      file: 'nginx.conf',
+      language: 'nginx',
+      code: `# nginx.conf
+server {
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+}`
+    }
+  },
+
+  'Permissions-Policy': {
+    'nextjs-vercel': {
+      file: 'next.config.js',
+      language: 'javascript',
+      code: `// next.config.js
+module.exports = {
+  headers: async () => [
+    {
+      source: '/(.*)',
+      headers: [
+        {
+          key: 'Permissions-Policy',
+          value: 'camera=(), microphone=(), geolocation=()'
+        }
+      ]
+    }
+  ]
+}`
+    },
+    'php-laravel': {
+      file: '.htaccess',
+      language: 'apache',
+      code: `# .htaccess
+<IfModule mod_headers.c>
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>`
+    },
+    'python-django': {
+      file: 'settings.py',
+      language: 'python',
+      code: `# settings.py
+# Security settings - Django doesn't have built-in Permissions-Policy
+# Use django-csp or custom middleware
+
+# Example with django-csp:
+CSP_PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=()"`
+    },
+    'java-spring': {
+      file: 'WebSecurityConfig.java',
+      language: 'java',
+      code: `// WebSecurityConfig.java
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .headers(headers ->
+                headers.permissionsPolicy(permissions ->
+                    permissions.policy("camera=(), microphone=(), geolocation=()")
+                )
+            );
+    }
+}`
+    },
+    'static-nginx': {
+      file: 'nginx.conf',
+      language: 'nginx',
+      code: `# nginx.conf
+server {
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+}`
+    }
+  },
+
   'Inline Event Handlers': {
     'nextjs-vercel': {
       file: 'Component.tsx',
@@ -599,7 +717,7 @@ const CONTEXT_MAP = {
       if (!stackConfig) return { actionType: 'CODE_REFACTOR', locations: 'Check source code', context: 'Review XSS vulnerabilities in your code' };
 
       return {
-        actionType: 'CODE_REFACTOR' as const,
+        actionType: 'CODE_REFACTOR' as const, // Правильный тип действия
         locations: stackConfig.xssCode.locations,
         context: stackConfig.xssCode.context
       };
