@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import { checkVulnerability } from '@/lib/vulnerability-db'
 
 // Helper function to parse URL and extract domain
