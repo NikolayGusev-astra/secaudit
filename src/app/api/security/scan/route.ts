@@ -1062,55 +1062,98 @@ export async function GET(request: NextRequest) {
       recommendations: JSON.stringify(performance.recommendations),
     }
 
-    console.log('Preparing to save to database...')
+    console.log('Preparing scan result...')
 
-    // Save scan to database
-    const scan = await db.securityScan.create({
-      data: {
+    let scan = null
+    let databaseError = false
+
+    try {
+      // Try to save scan to database (optional)
+      scan = await db.securityScan.create({
+        data: {
+          url: url,
+          domain: parsedUrl.domain,
+          status: 'COMPLETED',
+          overallScore,
+          riskLevel,
+          completedAt: new Date(),
+          sslCheck: {
+            create: sslCheckData,
+          },
+          headersCheck: {
+            create: headersCheckData,
+          },
+          dnsCheck: {
+            create: dnsCheckData,
+          },
+          performance: {
+            create: performanceCheckData,
+          },
+          vulnerabilities: {
+            create: vulnerabilities.map((vuln) => ({
+              ...vuln,
+              url: url,
+              evidence: vuln.evidence ? JSON.stringify(vuln.evidence) : null,
+            })),
+          },
+          portScans: {
+            create: portScans.map((scan) => ({
+              ...scan,
+            })),
+          },
+        },
+        include: {
+          sslCheck: true,
+          headersCheck: true,
+          dnsCheck: true,
+          performance: true,
+          vulnerabilities: true,
+          portScans: true,
+        },
+      })
+
+      console.log('Scan saved to database with ID:', scan.id)
+    } catch (dbError) {
+      console.error('Database save failed, continuing without persistence:', dbError)
+      databaseError = true
+
+      // Create scan object without database for response
+      scan = {
+        id: `scan-${Date.now()}`,
         url: url,
         domain: parsedUrl.domain,
         status: 'COMPLETED',
         overallScore,
         riskLevel,
-        completedAt: new Date(),
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
         sslCheck: {
-          create: sslCheckData,
+          ...sslCheck,
+          issues: sslCheck.issues,
         },
         headersCheck: {
-          create: headersCheckData,
+          ...headersCheck,
+          missingHeaders: headersCheck.missingHeaders,
+          issues: headersCheck.issues,
         },
         dnsCheck: {
-          create: dnsCheckData,
+          ...dnsCheck,
+          dnsRecords: dnsCheck.dnsRecords,
+          issues: dnsCheck.issues,
         },
         performance: {
-          create: performanceCheckData,
+          ...performance,
+          recommendations: performance.recommendations,
         },
-        vulnerabilities: {
-          create: vulnerabilities.map((vuln) => ({
-            ...vuln,
-            url: url,
-            evidence: vuln.evidence ? JSON.stringify(vuln.evidence) : null,
-          })),
-        },
-        portScans: {
-          create: portScans.map((scan) => ({
-            ...scan,
-          })),
-        },
-      },
-      include: {
-        sslCheck: true,
-        headersCheck: true,
-        dnsCheck: true,
-        performance: true,
-        vulnerabilities: true,
-        portScans: true,
-      },
-    })
+        vulnerabilities: vulnerabilities.map((vuln) => ({
+          ...vuln,
+          evidence: vuln.evidence,
+        })),
+        portScans: portScans,
+      }
+    }
 
-    console.log('Scan saved to database with ID:', scan.id)
-
-    // Parse JSON strings back to arrays for response
+    // Parse JSON strings back to arrays for response (only if from database)
     const response = {
       id: scan.id,
       url: scan.url,
@@ -1120,29 +1163,30 @@ export async function GET(request: NextRequest) {
       riskLevel: scan.riskLevel,
       startedAt: scan.startedAt,
       completedAt: scan.completedAt,
-      sslCheck: scan.sslCheck ? {
+      sslCheck: databaseError ? scan.sslCheck : (scan.sslCheck ? {
         ...scan.sslCheck,
         issues: scan.sslCheck.issues ? JSON.parse(scan.sslCheck.issues) : [],
-      } : undefined,
-      headersCheck: scan.headersCheck ? {
+      } : undefined),
+      headersCheck: databaseError ? scan.headersCheck : (scan.headersCheck ? {
         ...scan.headersCheck,
         missingHeaders: scan.headersCheck.missingHeaders ? JSON.parse(scan.headersCheck.missingHeaders) : [],
         issues: scan.headersCheck.issues ? JSON.parse(scan.headersCheck.issues) : [],
-      } : undefined,
-      dnsCheck: scan.dnsCheck ? {
+      } : undefined),
+      dnsCheck: databaseError ? scan.dnsCheck : (scan.dnsCheck ? {
         ...scan.dnsCheck,
         dnsRecords: scan.dnsCheck.dnsRecords ? JSON.parse(scan.dnsCheck.dnsRecords) : [],
         issues: scan.dnsCheck.issues ? JSON.parse(scan.dnsCheck.issues) : [],
-      } : undefined,
-      performance: scan.performance ? {
+      } : undefined),
+      performance: databaseError ? scan.performance : (scan.performance ? {
         ...scan.performance,
         recommendations: scan.performance.recommendations ? JSON.parse(scan.performance.recommendations) : [],
-      } : undefined,
-      vulnerabilities: scan.vulnerabilities.map((vuln) => ({
+      } : undefined),
+      vulnerabilities: databaseError ? scan.vulnerabilities : scan.vulnerabilities.map((vuln) => ({
         ...vuln,
         evidence: vuln.evidence ? JSON.parse(vuln.evidence) : undefined,
       })),
       portScans: scan.portScans,
+      databaseError: databaseError, // Indicate if database save failed
     }
 
     console.log('Final response prepared:', response)
