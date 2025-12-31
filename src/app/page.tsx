@@ -181,8 +181,15 @@ export default function SecurityAuditTool() {
 
     try {
       const targetUrl = url.startsWith('http') ? url : `https://${url}`
+      console.log('Starting scan for URL:', targetUrl)
+      console.log('Encoded URL:', encodeURIComponent(targetUrl))
+      
       const response = await fetch(`/api/security/scan?url=${encodeURIComponent(targetUrl)}`)
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+      
       const data = await response.json()
+      console.log('Response data:', data)
 
       if (data.error) {
         setError(data.error)
@@ -193,9 +200,10 @@ export default function SecurityAuditTool() {
         setScanResult(data)
       }
     } catch (err: any) {
+      console.error('Scan error details:', err)
+      console.error('Error stack:', err.stack)
       const errorMessage = err.response?.data?.error || err.message || 'Failed to scan website. Please try again.'
       setError(errorMessage)
-      console.error('Scan error:', err)
     } finally {
       setLoading(false)
     }
