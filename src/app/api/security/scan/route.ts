@@ -842,6 +842,35 @@ async function checkSensitiveFiles(baseUrl: string) {
 
       // 200 OK or 403 Forbidden (exists but protected) - both indicate exposure
       if (response.status === 200 || response.status === 403) {
+        // Content validation to avoid false positives
+        // Check if this is a real file or just an error page
+        const contentType = response.headers.get('content-type') || ''
+        const contentLength = parseInt(response.headers.get('content-length') || '0')
+
+        // If content is HTML and small, it's likely an error page
+        const isLikelyErrorPage = contentType.includes('text/html') && contentLength < 2048
+
+        // If content contains error messages, it's not a real file
+        let contentText = ''
+        if (isLikelyErrorPage) {
+          try {
+            const textResponse = await fetch(baseUrl + file)
+            contentText = await textResponse.text()
+          } catch {
+            contentText = ''
+          }
+        }
+
+        const isErrorContent = contentText.includes('404') ||
+                              contentText.includes('Not Found') ||
+                              contentText.includes('Error') ||
+                              contentText.includes('Bad Request')
+
+        // Skip if this is likely an error page
+        if (isLikelyErrorPage && isErrorContent) {
+          continue
+        }
+
         const severity = file.includes('.env') || file.includes('log') ? 'CRITICAL' :
                         file.includes('.git') ? 'HIGH' : 'MEDIUM'
 
@@ -858,7 +887,13 @@ async function checkSensitiveFiles(baseUrl: string) {
             ? 'Move log files outside web root or configure server to deny access.'
             : 'Configure server to deny access to sensitive files.',
           owaspCategory: 'A01',
-          evidence: { url: baseUrl + file, status: response.status }
+          evidence: {
+            url: baseUrl + file,
+            status: response.status,
+            contentType,
+            contentLength,
+            isErrorPage: isLikelyErrorPage
+          }
         })
       }
     } catch (error) {
