@@ -840,6 +840,20 @@ async function checkSensitiveFiles(baseUrl: string) {
         redirect: 'manual',
       })
 
+      // Skip sensitive file checks for major CDNs and protected sites
+      // They often return custom error pages that look like real files
+      const isProtectedSite = domain.includes('x.com') ||
+                             domain.includes('twitter.com') ||
+                             domain.includes('facebook.com') ||
+                             domain.includes('google.com') ||
+                             domain.includes('github.com') ||
+                             domain.includes('cloudflare.com') ||
+                             domain.includes('vercel.app')
+
+      if (isProtectedSite) {
+        continue
+      }
+
       // 200 OK or 403 Forbidden (exists but protected) - both indicate exposure
       if (response.status === 200 || response.status === 403) {
         // Content validation to avoid false positives
@@ -847,27 +861,60 @@ async function checkSensitiveFiles(baseUrl: string) {
         const contentType = response.headers.get('content-type') || ''
         const contentLength = parseInt(response.headers.get('content-length') || '0')
 
-        // If content is HTML and small, it's likely an error page
-        const isLikelyErrorPage = contentType.includes('text/html') && contentLength < 2048
-
-        // If content contains error messages, it's not a real file
+        // Always check content for sensitive files - even if not HTML
         let contentText = ''
-        if (isLikelyErrorPage) {
-          try {
-            const textResponse = await fetch(baseUrl + file)
-            contentText = await textResponse.text()
-          } catch {
-            contentText = ''
-          }
+        try {
+          const textResponse = await fetch(baseUrl + file)
+          contentText = await textResponse.text().toLowerCase()
+        } catch {
+          contentText = ''
         }
 
+        // Check for various error page indicators with expanded patterns
         const isErrorContent = contentText.includes('404') ||
-                              contentText.includes('Not Found') ||
-                              contentText.includes('Error') ||
-                              contentText.includes('Bad Request')
+                              contentText.includes('not found') ||
+                              contentText.includes('error') ||
+                              contentText.includes('bad request') ||
+                              contentText.includes('page not found') ||
+                              contentText.includes('file not found') ||
+                              contentText.includes('oops') ||
+                              contentText.includes('sorry') ||
+                              contentText.includes('access denied') ||
+                              contentText.includes('forbidden') ||
+                              contentText.includes('unauthorized') ||
+                              contentText.includes('403') ||
+                              contentText.includes('500') ||
+                              contentText.includes('internal server error') ||
+                              contentText.includes('service unavailable') ||
+                              contentText.includes('temporarily unavailable') ||
+                              contentText.includes('maintenance') ||
+                              contentText.includes('coming soon') ||
+                              contentText.includes('under construction') ||
+                              contentText.includes('redirect') ||
+                              contentText.includes('window.location') ||
+                              contentText.includes('location.href') ||
+                              (contentText.length < 200 && contentType.includes('text/html'))
 
-        // Skip if this is likely an error page
-        if (isLikelyErrorPage && isErrorContent) {
+        // Check if content looks like a real sensitive file vs error page
+        const looksLikeRealFile = file.includes('.env') && (contentText.includes('=') || contentText.includes('key') || contentText.includes('secret') || contentText.includes('password')) ||
+                                 file.includes('.log') && (contentText.includes('error') || contentText.includes('info') || contentText.includes('debug') || /\d{4}-\d{2}-\d{2}/.test(contentText)) ||
+                                 file.includes('.git') && (contentText.includes('ref:') || contentText.includes('tree ') || contentText.includes('commit '))
+
+        // Skip if this is likely an error page AND doesn't look like a real file
+        if (isErrorContent && !looksLikeRealFile) {
+          continue
+        }
+
+        // Additional check: if content looks like a typical web page structure but not a sensitive file
+        const looksLikeWebPage = contentText.includes('<html') ||
+                                contentText.includes('<body') ||
+                                contentText.includes('<div') ||
+                                contentText.includes('<head') ||
+                                contentText.includes('<meta') ||
+                                (contentText.includes('<title>') && contentText.includes('</title>'))
+
+        // If it's HTML and looks like a web page but doesn't contain sensitive content, skip it
+        if (contentType.includes('text/html') && looksLikeWebPage && !looksLikeRealFile) {
           continue
         }
 
