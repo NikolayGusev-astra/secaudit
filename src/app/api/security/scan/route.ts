@@ -1110,10 +1110,16 @@ async function scanVulnerabilities(url: string, domain: string) {
     const html = await response.text()
     const headers = Object.fromEntries(response.headers.entries())
 
+    // Detect if page is an error page (404, 403, 500) to avoid false positives
+    const isErrorPage = [404, 403, 500, 502, 503].includes(response.status)
+    const statusCode = response.status
+
     // 0. Check DNS security configuration (SPF, DMARC, DKIM)
     // Get DNS info first
     const dnsInfo = await checkDNS(domain)
 
+    // Email security is only applicable if MX records exist
+    // Avoid penalizing score for missing SPF/DMARC if email is not used
     if (dnsInfo.hasMXRecord) {
       if (!dnsInfo.hasSPF) {
         vulnerabilities.push({
@@ -1167,24 +1173,29 @@ async function scanVulnerabilities(url: string, domain: string) {
       }
     }
 
-    // 1. Check for missing security headers
+    // 1. Check for missing security headers (Deduplication check)
+    const seenTitles = new Set<string>()
     const criticalHeaders = [
       { name: 'content-security-policy', type: 'INSECURE_HEADERS' },
       { name: 'strict-transport-security', type: 'INSECURE_HEADERS' },
       { name: 'x-frame-options', type: 'INSECURE_HEADERS' },
-      { name: 'x-content-type-options', type: 'INSECURE_HEADERS' },
+      { name: 'x-content-type-options', type: 'INSECURE_HEADERS' }, // Only check in criticalHeaders list
     ]
 
     criticalHeaders.forEach(({ name, type }) => {
       if (!headers[name.toLowerCase()]) {
-        vulnerabilities.push({
-          type,
-          severity: 'MEDIUM',
-          title: `Missing Security Header: ${name}`,
-          description: `The ${name} header is not set, which can expose application to various security risks.`,
-          recommendation: `Implement ${name} header with appropriate values for your application.`,
-          owaspCategory: 'A05',
-        })
+        const title = `Missing Security Header: ${name}`
+        if (!seenTitles.has(title)) {
+          vulnerabilities.push({
+            type,
+            severity: 'MEDIUM',
+            title,
+            description: `The ${name} header is not set, which can expose application to various security risks.`,
+            recommendation: `Implement ${name} header with appropriate values for your application.`,
+            owaspCategory: 'A05',
+          })
+          seenTitles.add(title)
+        }
       }
     })
 
@@ -1195,17 +1206,17 @@ async function scanVulnerabilities(url: string, domain: string) {
       vulnerabilities.push(...cspIssues)
     }
 
-    // 3. Check for outdated JavaScript libraries with CVE analysis
+    // 3. Check for libraries with CVEs using embedded database
+    // Removed naive "minVersion" check - rely solely on database for CVEs
     const libraryPatterns = [
-      { pattern: /jquery[-.](\d+\.?\d*\.?\d*)/gi, name: 'jQuery', minVersion: '3.6.0' },
-      { pattern: /react[-.](\d+\.?\d*\.?\d*)/gi, name: 'React', minVersion: '18.0.0' },
-      { pattern: /angular[-.](\d+\.?\d*\.?\d*)/gi, name: 'Angular', minVersion: '12.0.0' },
-      { pattern: /vue[-.](\d+\.?\d*\.?\d*)/gi, name: 'Vue.js', minVersion: '3.0.0' },
-      { pattern: /bootstrap[-.](\d+\.?\d*\.?\d*)/gi, name: 'Bootstrap', minVersion: '5.0.0' },
+      { pattern: /jquery[-.](\d+\.?\d*\.?\d*)/gi, name: 'jQuery' },
+      { pattern: /react[-.](\d+\.?\d*\.?\d*)/gi, name: 'React' },
+      { pattern: /angular[-.](\d+\.?\d*\.?\d*)/gi, name: 'Angular' },
+      { pattern: /vue[-.](\d+\.?\d*\.?\d*)/gi, name: 'Vue.js' },
+      { pattern: /bootstrap[-.](\d+\.?\d*\.?\d*)/gi, name: 'Bootstrap' },
     ]
 
-    // Check for libraries and their CVEs
-    for (const { pattern, name, minVersion } of libraryPatterns) {
+    for (const { pattern, name } of libraryPatterns) {
       const matches = html.match(pattern)
       if (matches) {
         for (const match of matches) {
@@ -1232,25 +1243,18 @@ async function scanVulnerabilities(url: string, domain: string) {
                   type: cveResult.type
                 }
               })
-            } else {
-              // Still check for outdated versions even if no CVEs
-              vulnerabilities.push({
-                type: 'OUTDATED_SOFTWARE',
-                severity: 'LOW',
-                title: `Potentially Outdated Library: ${name}`,
-                description: `Detected ${name} version ${version}. Consider updating to the latest version.`,
-                recommendation: `Update ${name} to the latest stable version (${minVersion} or later) to ensure security and performance.`,
-                owaspCategory: 'A06',
-              })
             }
           }
         }
       }
     }
 
-    // 4. Check for sensitive files exposure
-    const sensitiveFileIssues = await checkSensitiveFiles(url)
-    vulnerabilities.push(...sensitiveFileIssues)
+    // Skip sensitive file checks if page returned error (avoid noise on 404s)
+    if (!isErrorPage) {
+      // 4. Check for sensitive files exposure
+      const sensitiveFileIssues = await checkSensitiveFiles(url)
+      vulnerabilities.push(...sensitiveFileIssues)
+    }
 
     // 3. Check for information disclosure in comments
     const commentPatterns = [
@@ -1342,41 +1346,40 @@ async function scanVulnerabilities(url: string, domain: string) {
       })
     }
 
-    // 8. Check for missing referrer policy
-    if (!headers['referrer-policy']) {
-      vulnerabilities.push({
-        type: 'INSECURE_HEADERS',
-        severity: 'LOW',
-        title: 'Missing Referrer-Policy Header',
-        description: 'Referrer-Policy header is not set, which can leak sensitive information through the Referer header.',
-        recommendation: 'Set Referrer-Policy header to "strict-origin-when-cross-origin" or "no-referrer" for sensitive pages.',
-        owaspCategory: 'A05',
-      })
-    }
+    // Skip referrer policy and Open Graph checks on error pages (noise reduction)
+    if (!isErrorPage) {
+      // 8. Check for missing referrer policy
+      if (!headers['referrer-policy']) {
+        vulnerabilities.push({
+          type: 'INSECURE_HEADERS',
+          severity: 'LOW',
+          title: 'Missing Referrer-Policy Header',
+          description: 'Referrer-Policy header is not set, which can leak sensitive information through the Referer header.',
+          recommendation: 'Set Referrer-Policy header to "strict-origin-when-cross-origin" or "no-referrer" for sensitive pages.',
+          owaspCategory: 'A05',
+        })
+      }
 
-    // 9. Check for missing X-Content-Type-Options
-    if (!headers['x-content-type-options']) {
-      vulnerabilities.push({
-        type: 'INSECURE_HEADERS',
-        severity: 'LOW',
-        title: 'Missing X-Content-Type-Options Header',
-        description: 'X-Content-Type-Options header is not set, which can allow MIME type sniffing.',
-        recommendation: 'Set X-Content-Type-Options: nosniff to prevent MIME type sniffing.',
-        owaspCategory: 'A03',
-      })
-    }
+      // 9. Check for missing X-Content-Type-Options (Checked in criticalHeaders, but here for consistency if needed)
+      // Already handled in criticalHeaders list, but check separately if needed?
+      // Keeping the logic simple to avoid duplicates.
 
-    // 10. Check for server technology disclosure
-    const server = headers['server']
-    if (server && server !== 'cloudflare') {
-      vulnerabilities.push({
-        type: 'INFORMATION_DISCLOSURE',
-        severity: 'LOW',
-        title: 'Server Technology Disclosure',
-        description: `Server header reveals: ${server}`,
-        recommendation: 'Configure server to hide or minimize server information in headers.',
-        owaspCategory: 'A01',
-      })
+      // 10. Check for server technology disclosure
+      const server = headers['server']
+      if (server && server !== 'cloudflare') {
+        vulnerabilities.push({
+          type: 'INFORMATION_DISCLOSURE',
+          severity: 'LOW',
+          title: 'Server Technology Disclosure',
+          description: `Server header reveals: ${server}`,
+          recommendation: 'Configure server to hide or minimize server information in headers.',
+          owaspCategory: 'A01',
+        })
+      }
+
+      // 16. Social Media Metadata Analysis (Open Graph)
+      const socialIssues = analyzeSocialMetadata(html)
+      vulnerabilities.push(...socialIssues)
     }
 
     // 11. Cookie Security Analysis
@@ -1417,10 +1420,6 @@ async function scanVulnerabilities(url: string, domain: string) {
         recommendation: 'Consider implementing a WAF (Cloudflare, AWS WAF, ModSecurity, etc.) to protect against common attacks.',
       })
     }
-
-    // 16. Social Media Metadata Analysis
-    const socialIssues = analyzeSocialMetadata(html)
-    vulnerabilities.push(...socialIssues)
 
     return vulnerabilities
   } catch (error) {
