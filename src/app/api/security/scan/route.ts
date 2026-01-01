@@ -711,11 +711,21 @@ async function checkLibraryCVEs(libraryName: string, version: string) {
   }
 }
 
-// Deep CSP Parser - Analyze CSP directives
+// Deep CSP Parser - Analyze CSP directives quality
 function analyzeCSP(cspValue: string) {
   const issues: any[] = []
 
-  if (!cspValue) return issues
+  if (!cspValue) {
+    issues.push({
+      type: 'INSECURE_HEADERS',
+      severity: 'HIGH',
+      title: 'Missing Content Security Policy',
+      description: 'Content Security Policy (CSP) header is not set, leaving the application vulnerable to XSS and injection attacks.',
+      recommendation: 'Implement a comprehensive CSP header. Start with: default-src \'self\'; script-src \'self\'; style-src \'self\'; img-src \'self\' https:;',
+      owaspCategory: 'A03',
+    })
+    return issues
+  }
 
   // Parse CSP directives
   const directives: { [key: string]: string[] } = {}
@@ -732,52 +742,59 @@ function analyzeCSP(cspValue: string) {
   const scriptSrc = directives['script-src'] || directives['default-src'] || []
   const styleSrc = directives['style-src'] || directives['default-src'] || []
   const objectSrc = directives['object-src'] || directives['default-src'] || []
+  const frameSrc = directives['frame-src'] || directives['default-src'] || []
 
-  // Check for unsafe-inline
+  // CRITICAL: Check for unsafe-inline in scripts
   if (scriptSrc.includes("'unsafe-inline'")) {
     issues.push({
       type: 'MISCONFIGURATION',
       severity: 'HIGH',
       title: 'CSP Allows unsafe-inline for Scripts',
-      description: 'Content Security Policy allows inline scripts, which can be exploited for XSS attacks.',
-      recommendation: 'Remove \'unsafe-inline\' from script-src directive and use nonce-based or hash-based CSP.',
+      description: 'Content Security Policy allows inline scripts with \'unsafe-inline\', which can be exploited for XSS attacks.',
+      recommendation: 'Remove \'unsafe-inline\' from script-src directive. Use nonce-based CSP: script-src \'self\' \'nonce-xyz\'',
       owaspCategory: 'A03',
+      evidence: { directive: 'script-src', dangerous: 'unsafe-inline' }
     })
   }
 
-  if (styleSrc.includes("'unsafe-inline'")) {
-    issues.push({
-      type: 'MISCONFIGURATION',
-      severity: 'MEDIUM',
-      title: 'CSP Allows unsafe-inline for Styles',
-      description: 'Content Security Policy allows inline styles, which can be exploited for CSS-based attacks.',
-      recommendation: 'Remove \'unsafe-inline\' from style-src directive and use nonce-based CSP.',
-      owaspCategory: 'A03',
-    })
-  }
-
-  // Check for unsafe-eval
+  // CRITICAL: Check for unsafe-eval
   if (scriptSrc.includes("'unsafe-eval'")) {
     issues.push({
       type: 'MISCONFIGURATION',
       severity: 'HIGH',
       title: 'CSP Allows unsafe-eval',
-      description: 'Content Security Policy allows eval() and similar functions, which can be exploited.',
-      recommendation: 'Remove \'unsafe-eval\' from script-src directive.',
+      description: 'Content Security Policy allows eval() and similar functions with \'unsafe-eval\', which can be exploited.',
+      recommendation: 'Remove \'unsafe-eval\' from script-src directive. Avoid using eval() in your code.',
       owaspCategory: 'A03',
+      evidence: { directive: 'script-src', dangerous: 'unsafe-eval' }
     })
   }
 
-  // Check for overly permissive sources
+  // MEDIUM: Check for unsafe-inline in styles
+  if (styleSrc.includes("'unsafe-inline'")) {
+    issues.push({
+      type: 'MISCONFIGURATION',
+      severity: 'MEDIUM',
+      title: 'CSP Allows unsafe-inline for Styles',
+      description: 'Content Security Policy allows inline styles with \'unsafe-inline\', which can be exploited for CSS-based attacks.',
+      recommendation: 'Remove \'unsafe-inline\' from style-src directive. Use nonce-based CSP for styles.',
+      owaspCategory: 'A03',
+      evidence: { directive: 'style-src', dangerous: 'unsafe-inline' }
+    })
+  }
+
+  // HIGH: Check for overly permissive wildcard sources
   const checkPermissive = (directive: string, sources: string[], directiveName: string) => {
-    if (sources.includes('*')) {
+    if (sources.includes('*') || sources.includes('*.com') || sources.includes('*.org')) {
+      const severity = directive === 'script-src' || directive === 'default-src' ? 'HIGH' : 'MEDIUM'
       issues.push({
         type: 'MISCONFIGURATION',
-        severity: 'HIGH',
-        title: `CSP Allows All Origins in ${directiveName}`,
-        description: `Content Security Policy allows all origins (*) in ${directiveName}, which defeats the purpose of CSP.`,
-        recommendation: `Replace '*' with specific trusted domains in ${directiveName} directive.`,
+        severity,
+        title: `CSP Allows Wildcard Origins in ${directiveName}`,
+        description: `Content Security Policy allows wildcard (*) or broad patterns in ${directiveName}, which defeats the purpose of CSP.`,
+        recommendation: `Replace wildcards with specific trusted domains in ${directiveName} directive.`,
         owaspCategory: 'A03',
+        evidence: { directive: directiveName, sources: sources.filter(s => s.includes('*')) }
       })
     }
   }
@@ -785,8 +802,9 @@ function analyzeCSP(cspValue: string) {
   checkPermissive('script-src', scriptSrc, 'script-src')
   checkPermissive('style-src', styleSrc, 'style-src')
   checkPermissive('object-src', objectSrc, 'object-src')
+  checkPermissive('frame-src', frameSrc, 'frame-src')
 
-  // Check for data: URLs (potentially dangerous)
+  // MEDIUM: Check for data: URLs (potentially dangerous)
   const hasDataUrls = Object.values(directives).some((sources: string[]) =>
     sources.some(src => src.includes('data:'))
   )
@@ -796,8 +814,37 @@ function analyzeCSP(cspValue: string) {
       type: 'MISCONFIGURATION',
       severity: 'MEDIUM',
       title: 'CSP Allows data: URLs',
-      description: 'Content Security Policy allows data: URLs, which can be exploited for XSS attacks.',
-      recommendation: 'Restrict data: URLs to specific cases or remove if not needed.',
+      description: 'Content Security Policy allows data: URLs, which can be exploited for XSS attacks via data URIs.',
+      recommendation: 'Restrict data: URLs to specific cases (e.g., data: image/png) or remove if not needed.',
+      owaspCategory: 'A03',
+      evidence: { dangerous: 'data: URLs allowed' }
+    })
+  }
+
+  // LOW: Check for missing critical directives
+  const criticalDirectives = ['default-src', 'script-src', 'style-src', 'img-src', 'connect-src']
+  const missingDirectives = criticalDirectives.filter(dir => !directives[dir])
+
+  if (missingDirectives.length > 0) {
+    issues.push({
+      type: 'MISCONFIGURATION',
+      severity: 'LOW',
+      title: 'Incomplete CSP Coverage',
+      description: `CSP is missing critical directives: ${missingDirectives.join(', ')}. This leaves some attack vectors unprotected.`,
+      recommendation: `Add missing directives: ${missingDirectives.map(d => `${d} 'self'`).join('; ')}`,
+      owaspCategory: 'A03',
+      evidence: { missing: missingDirectives }
+    })
+  }
+
+  // INFO: CSP exists but analyze quality
+  if (issues.length === 0) {
+    issues.push({
+      type: 'MISCONFIGURATION',
+      severity: 'INFO',
+      title: 'CSP Present (Basic Analysis)',
+      description: 'Content Security Policy is configured. No obvious security issues detected in basic analysis.',
+      recommendation: 'Consider implementing nonce-based CSP for better security, and regularly review CSP violations in browser console.',
       owaspCategory: 'A03',
     })
   }
