@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkVulnerability } from '@/lib/vulnerability-db'
+import { checkVulnerability } from '@/lib/vulnerability-db.js'
 
 // Helper function to parse URL and extract domain
 function parseUrl(url: string) {
@@ -537,7 +537,7 @@ function checkSRI(html: string, url: string) {
       if (!hasIntegrity) {
         issues.push({
           type: 'MISCONFIGURATION',
-          severity: 'MEDIUM',
+          severity: 'LOW',
           title: 'External Resource Missing SRI',
           description: `External resource (${src}) is loaded without Subresource Integrity (SRI) check.`,
           recommendation: 'Add integrity attribute with SHA-256/384/512 hash to prevent CDN compromise attacks.',
