@@ -46,10 +46,8 @@ const nextConfig: NextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=31536000; includeSubDomains; preload',
           },
-          {
-            key: 'Server',
-            value: 'Web Server',
-          },
+          // Note: Server header override may not work on Vercel
+          // Vercel controls server headers at the platform level
         ],
       },
     ];
