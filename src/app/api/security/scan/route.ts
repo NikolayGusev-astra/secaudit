@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkVulnerability } from '@/lib/vulnerability-db.js'
+import { 
+  analyzeCSPPolicy, 
+  analyzeCookieSecurity, 
+  SPA_PATTERNS_DB, 
+  OWASP_PATTERNS_DB 
+} from '@/lib/security-patterns-db'
+import { 
+  checkLibraryVulnerabilityHybrid, 
+  generateVulnerabilitySummary, 
+  hasInternetAccess 
+} from '@/lib/hybrid-vulnerability-checker'
+import { 
+  performFullDNSCheck, 
+  generateDNSSecurityScore, 
+  isDNSAvailable 
+} from '@/lib/dnssec-checker'
 
 // Helper function to parse URL and extract domain
 function parseUrl(url: string) {
@@ -72,7 +88,7 @@ async function checkSSL(hostname: string) {
   }
 }
 
-// Security Headers Checker
+// Security Headers Checker with Enhanced CSP Analysis
 async function checkSecurityHeaders(url: string) {
   try {
     const response = await fetch(url, { method: 'HEAD' })
@@ -89,7 +105,7 @@ async function checkSecurityHeaders(url: string) {
     ]
 
     const missingHeaders: string[] = []
-    const issues: string[] = []
+    const issues: any[] = []
 
     importantHeaders.forEach(header => {
       if (!headers[header]) {
@@ -112,16 +128,44 @@ async function checkSecurityHeaders(url: string) {
       hasHSTSPreload = hsts.includes('preload')
     }
 
+    // Enhanced CSP Analysis using security-patterns-db
+    const cspValue = headers['content-security-policy']
+    if (cspValue) {
+      const cspIssues = analyzeCSPPolicy(cspValue)
+      issues.push(...cspIssues)
+    } else {
+      // Missing CSP - add OWASP pattern
+      const missingCSP = OWASP_PATTERNS_DB['missing-csp'] as any
+      if (missingCSP) {
+        issues.push({
+          ...missingCSP,
+          evidence: { url },
+        })
+      }
+    }
+
     // Check for information disclosure
     const server = headers['server']
     const xPoweredBy = headers['x-powered-by']
 
     if (server && server !== 'cloudflare') {
-      issues.push('Server header discloses server technology')
+      const serverHeaderDisclosure = OWASP_PATTERNS_DB['server-header-disclosure'] as any
+      if (serverHeaderDisclosure) {
+        issues.push({
+          ...serverHeaderDisclosure,
+          evidence: { server },
+        })
+      }
     }
 
     if (xPoweredBy) {
-      issues.push('X-Powered-By header discloses framework information')
+      issues.push({
+        title: 'X-Powered-By Header Disclosure',
+        severity: 'INFO',
+        description: `X-Powered-By header discloses: ${xPoweredBy}`,
+        recommendation: 'Remove X-Powered-By header in production.',
+        category: 'INFORMATION_DISCLOSURE',
+      })
     }
 
     // Calculate score
@@ -183,112 +227,71 @@ async function checkSecurityHeaders(url: string) {
   }
 }
 
-// DNS Checker (using DNS-over-HTTPS)
+// DNS Checker using enhanced dnssec-checker
 async function checkDNS(domain: string) {
   try {
-    const dnsChecks = {
-      hasARecord: false,
-      hasAAAARecord: false,
-      hasMXRecord: false,
-      hasTXTRecord: false,
-      hasNSRecord: false,
-      hasSPF: false,
-      spfRecord: undefined as string | undefined,
-      spfValid: false,
-      hasDMARC: false,
-      dmarcRecord: undefined as string | undefined,
-      dmarcPolicy: undefined as string | undefined,
-      dmarcValid: false,
-      hasDKIM: false,
-      hasDNSSEC: false,
-      dnsRecords: [] as any[],
-      issues: [] as string[],
-      score: 0,
-    }
+    // Use enhanced DNS check with DNSSEC
+    const dnsCheck = await performFullDNSCheck(domain)
 
-    // Use Google DNS-over-HTTPS API
-    const recordTypes = ['A', 'AAAA', 'MX', 'TXT', 'NS']
+    const hasSPF = dnsCheck.dnsRecords.txtRecords.some(txt =>
+      typeof txt === 'string' && txt.toLowerCase().startsWith('v=spf1')
+    )
 
-    for (const type of recordTypes) {
-      try {
-        const response = await fetch(
-          `https://dns.google/resolve?name=${domain}&type=${type}`,
-          { method: 'GET' }
-        )
-        const data = await response.json()
+    const hasDMARC = dnsCheck.dnsRecords.txtRecords.some(txt =>
+      typeof txt === 'string' && (
+        txt.toLowerCase().includes('v=dmarc1') ||
+        txt.toLowerCase().includes('v=dmarc')
+      )
+    )
 
-        if (data.Answer && data.Answer.length > 0) {
-          switch (type) {
-            case 'A':
-              dnsChecks.hasARecord = true
-              break
-            case 'AAAA':
-              dnsChecks.hasAAAARecord = true
-              break
-            case 'MX':
-              dnsChecks.hasMXRecord = true
-              break
-            case 'TXT':
-              dnsChecks.hasTXTRecord = true
-              // Check for SPF, DMARC, DKIM
-              data.Answer.forEach((record: any) => {
-                const txt = record.data
-                if (txt.includes('v=spf1')) {
-                  dnsChecks.hasSPF = true
-                  dnsChecks.spfRecord = txt
-                  dnsChecks.spfValid = !txt.includes('~all') && !txt.includes('-all')
-                }
-                if (txt.includes('v=DMARC1')) {
-                  dnsChecks.hasDMARC = true
-                  dnsChecks.dmarcRecord = txt
-                  if (txt.includes('p=reject')) {
-                    dnsChecks.dmarcPolicy = 'reject'
-                    dnsChecks.dmarcValid = true
-                  } else if (txt.includes('p=quarantine')) {
-                    dnsChecks.dmarcPolicy = 'quarantine'
-                    dnsChecks.dmarcValid = true
-                  } else {
-                    dnsChecks.dmarcPolicy = 'none'
-                    dnsChecks.dmarcValid = false
-                  }
-                }
-                if (txt.includes('v=DKIM1')) {
-                  dnsChecks.hasDKIM = true
-                }
-              })
-              break
-            case 'NS':
-              dnsChecks.hasNSRecord = true
-              break
-          }
-
-          dnsChecks.dnsRecords.push(...data.Answer)
-        }
-      } catch (error) {
-        console.error(`DNS ${type} check error:`, error)
-      }
-    }
+    const hasDKIM = dnsCheck.dnsRecords.txtRecords.some(txt =>
+      typeof txt === 'string' && txt.toLowerCase().includes('v=dkim1')
+    )
 
     // Calculate score
     let score = 0
-    if (dnsChecks.hasARecord) score += 20
-    if (dnsChecks.hasNSRecord) score += 10
+    if (dnsCheck.dnsRecords.aRecords.length > 0) score += 20
+    if (dnsCheck.dnsRecords.nsRecords.length > 0) score += 10
 
     // Only check email security if MX records exist
-    if (dnsChecks.hasMXRecord) {
-      if (dnsChecks.hasSPF && dnsChecks.spfValid) score += 20
-      if (dnsChecks.hasDMARC && dnsChecks.dmarcValid) score += 20
-      if (dnsChecks.hasDKIM) score += 15
+    if (dnsCheck.dnsRecords.mxRecords.length > 0) {
+      if (hasSPF) score += 20
+      if (hasDMARC) score += 20
+      if (hasDKIM) score += 15
     } else {
-      // If no MX records, email security is not applicable
-      dnsChecks.issues.push('No MX records found - email security (SPF, DMARC, DKIM) is not applicable')
+      if (dnsCheck.offlineMode) {
+        const offlineIssue = {
+          type: 'CONFIGURATION' as 'MISSING_RECORD' | 'RECORD_COUNT' | 'CONFIGURATION',
+          severity: 'INFO' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO',
+          title: 'Offline Mode',
+          description: 'DNS checks are unavailable in offline mode',
+          recommendation: 'Network access required for DNS checks',
+        }
+        dnsCheck.dnsRecords.issues.push(offlineIssue as any)
+      }
     }
 
-    if (dnsChecks.hasMXRecord) score += 15
+    if (dnsCheck.dnsRecords.mxRecords.length > 0) score += 15
 
-    dnsChecks.score = score
-
-    return dnsChecks
+    return {
+      ...dnsCheck,
+      hasARecord: dnsCheck.dnsRecords.aRecords.length > 0,
+      hasAAAARecord: dnsCheck.dnsRecords.aaaaRecords.length > 0,
+      hasMXRecord: dnsCheck.dnsRecords.mxRecords.length > 0,
+      hasTXTRecord: dnsCheck.dnsRecords.txtRecords.length > 0,
+      hasNSRecord: dnsCheck.dnsRecords.nsRecords.length > 0,
+      hasSPF,
+      spfValid: hasSPF,
+      hasDMARC,
+      dmarcPolicy: hasDMARC ? 'enabled' : 'disabled',
+      dmarcValid: hasDMARC,
+      hasDKIM,
+      hasDNSSEC: dnsCheck.dnssec.hasDNSSEC,
+      dnsRecords: dnsCheck.dnsRecords.aRecords.length + dnsCheck.dnsRecords.aaaaRecords.length,
+      issues: dnsCheck.dnsRecords.issues,
+      score,
+      offlineMode: dnsCheck.offlineMode,
+    }
   } catch (error) {
     console.error('DNS check error:', error)
     return {
@@ -307,8 +310,9 @@ async function checkDNS(domain: string) {
       hasDKIM: false,
       hasDNSSEC: false,
       dnsRecords: [],
-      issues: ['Failed to perform DNS lookup'],
+      issues: [{ type: 'CONFIGURATION', severity: 'HIGH', title: 'Failed to perform DNS lookup', description: 'Network error', recommendation: 'Check network connectivity' }],
       score: 0,
+      offlineMode: true,
     }
   }
 }
@@ -402,64 +406,17 @@ async function checkPerformance(url: string) {
   }
 }
 
-// Cookie Security Analyzer
+// Cookie Security Analyzer using security-patterns-db
 function analyzeCookies(headers: Record<string, string>, html: string) {
   const issues: any[] = []
   const setCookie = headers['set-cookie']
   const cookies = typeof setCookie === 'string' ? [setCookie] : (setCookie || [])
 
-  // Analyze each cookie
-  cookies.forEach((cookie: string) => {
-    if (!cookie.includes('Secure')) {
-      issues.push({
-        type: 'MISCONFIGURATION',
-        severity: 'HIGH',
-        title: 'Cookie Missing Secure Flag',
-        description: 'Cookie is transmitted over unencrypted HTTP connections, making it vulnerable to interception.',
-        recommendation: 'Add "Secure" flag to cookie to only transmit over HTTPS.',
-        evidence: { cookie: cookie.split(';')[0] },
-      })
-    }
-
-    if (!cookie.includes('HttpOnly')) {
-      issues.push({
-        type: 'XSS',
-        severity: 'MEDIUM',
-        title: 'Cookie Missing HttpOnly Flag',
-        description: 'Cookie is accessible via JavaScript, making it vulnerable to XSS attacks.',
-        recommendation: 'Add "HttpOnly" flag to prevent client-side scripts from accessing cookie.',
-        evidence: { cookie: cookie.split(';')[0] },
-      })
-    }
-
-    if (!cookie.includes('SameSite')) {
-      issues.push({
-        type: 'CSRF',
-        severity: 'MEDIUM',
-        title: 'Cookie Missing SameSite Flag',
-        description: 'Cookie is sent with all cross-site requests, increasing CSRF attack risk.',
-        recommendation: 'Add "SameSite=Strict" or "SameSite=Lax" attribute to prevent CSRF attacks.',
-        evidence: { cookie: cookie.split(';')[0] },
-      })
-    }
-
-    // Check for long expiration times
-    const maxAgeMatch = cookie.match(/max-age=(\d+)/i)
-    if (maxAgeMatch) {
-      const maxAge = parseInt(maxAgeMatch[1])
-      // More than 30 days
-      if (maxAge > 2592000) {
-        issues.push({
-          type: 'MISCONFIGURATION',
-          severity: 'LOW',
-          title: 'Cookie Long Expiration Time',
-          description: `Cookie has a very long expiration time (${Math.round(maxAge / 86400)} days), increasing exposure if compromised.`,
-          recommendation: 'Reduce cookie expiration time to a reasonable duration (e.g., 1-7 days).',
-          evidence: { maxAge, days: Math.round(maxAge / 86400) },
-        })
-      }
-    }
-  })
+  if (cookies.length > 0) {
+    // Use enhanced cookie security analysis
+    const cookieIssues = analyzeCookieSecurity(cookies)
+    issues.push(...cookieIssues)
+  }
 
   return issues
 }
@@ -518,7 +475,7 @@ function analyzeCORS(headers: Record<string, string>) {
   return issues
 }
 
-// SRI (Subresource Integrity) Checker
+// SRI (Subresource Integrity) Checker using security-patterns-db
 function checkSRI(html: string, url: string) {
   const issues: any[] = []
 
@@ -535,14 +492,13 @@ function checkSRI(html: string, url: string) {
       const hasIntegrity = /integrity=["']([^"']+)["']/i.test(tag)
 
       if (!hasIntegrity) {
-        issues.push({
-          type: 'MISCONFIGURATION',
-          severity: 'LOW',
-          title: 'External Resource Missing SRI',
-          description: `External resource (${src}) is loaded without Subresource Integrity (SRI) check.`,
-          recommendation: 'Add integrity attribute with SHA-256/384/512 hash to prevent CDN compromise attacks.',
-          evidence: { url: src },
-        })
+        const missingSRI = OWASP_PATTERNS_DB['missing-sri'] as any
+        if (missingSRI) {
+          issues.push({
+            ...missingSRI,
+            evidence: { url: src },
+          })
+        }
       }
     }
   }
@@ -575,7 +531,7 @@ function detectWAF(headers: Record<string, string>) {
     'azure': 'Azure WAF',
     'aws': 'AWS WAF',
     'modsecurity': 'ModSecurity',
-    ' barracuda': 'Barracuda WAF',
+    'barracuda': 'Barracuda WAF',
   }
 
   const detected = []
@@ -590,7 +546,7 @@ function detectWAF(headers: Record<string, string>) {
   return detected
 }
 
-// Content Injection Checks
+// Content Injection Checks using security-patterns-db
 function checkContentInjection(html: string, url: string) {
   const issues: any[] = []
 
@@ -603,16 +559,51 @@ function checkContentInjection(html: string, url: string) {
 
   patterns.forEach((pattern) => {
     if (pattern.test(html)) {
-      issues.push({
-        type: 'XSS',
-        severity: 'HIGH',
-        title: 'Potential Content Injection Detected',
-        description: 'HTML contains patterns that may indicate server-side template injection or XSS vulnerabilities.',
-        recommendation: 'Review server-side rendering code and ensure proper output encoding.',
-        evidence: { pattern: pattern.source },
-      })
+      const evalPattern = OWASP_PATTERNS_DB['eval-pattern'] as any
+      if (evalPattern) {
+        issues.push({
+          ...evalPattern,
+          evidence: { pattern: pattern.source },
+        })
+      }
     }
   })
+
+  // Check for javascript: protocol
+  const jsProtocolPattern = /javascript:/gi
+  if (jsProtocolPattern.test(html)) {
+    const jsHrefPattern = OWASP_PATTERNS_DB['javascript-href'] as any
+    if (jsHrefPattern) {
+      issues.push({
+        ...jsHrefPattern,
+        evidence: { count: (html.match(jsProtocolPattern) || []).length },
+      })
+    }
+  }
+
+  // Check for inline event handlers
+  const eventHandlerPattern = /on\w+\s*=\s*["'][^"']*["']/gi
+  if (eventHandlerPattern.test(html)) {
+    const inlineHandlerPattern = OWASP_PATTERNS_DB['inline-event-handlers'] as any
+    if (inlineHandlerPattern) {
+      issues.push({
+        ...inlineHandlerPattern,
+        evidence: { count: (html.match(eventHandlerPattern) || []).length },
+      })
+    }
+  }
+
+  // Check for dangerouslySetInnerHTML (React pattern)
+  const dangerousInnerHTMLPattern = /dangerouslySetInnerHTML/gi
+  if (dangerousInnerHTMLPattern.test(html)) {
+    const pattern = SPA_PATTERNS_DB['dangerously-set-innerhtml'] as any
+    if (pattern) {
+      issues.push({
+        ...pattern,
+        evidence: { count: (html.match(dangerousInnerHTMLPattern) || []).length },
+      })
+    }
+  }
 
   return issues
 }
@@ -663,193 +654,34 @@ function analyzeSocialMetadata(html: string) {
   return issues
 }
 
-// CVE Intelligence - Check vulnerabilities in detected libraries
-async function checkLibraryCVEs(libraryName: string, version: string) {
+// Enhanced Library Vulnerability Checker using Hybrid approach
+async function checkLibraryCVEsHybrid(libraryName: string, version: string) {
   try {
-    // Use OSV (Open Source Vulnerabilities) API
-    const response = await fetch(`https://api.osv.dev/v1/query`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        package: {
-          name: libraryName,
-          ecosystem: libraryName.toLowerCase().includes('jquery') ? 'npm' :
-                     libraryName.toLowerCase().includes('bootstrap') ? 'npm' :
-                     libraryName.toLowerCase().includes('react') ? 'npm' :
-                     libraryName.toLowerCase().includes('angular') ? 'npm' :
-                     libraryName.toLowerCase().includes('vue') ? 'npm' : 'npm'
-        },
-        version: version
-      })
-    })
+    // Use hybrid vulnerability checker
+    const result = await checkLibraryVulnerabilityHybrid(libraryName, version)
 
-    const data = await response.json()
-
-    if (data.vulns && data.vulns.length > 0) {
-      const criticalVulns = data.vulns.filter((v: any) => v.severity === 'CRITICAL' || v.severity === 'HIGH')
-      const hasCritical = criticalVulns.length > 0
-
+    if (result.isVulnerable) {
       return {
         hasVulnerabilities: true,
-        criticalCount: criticalVulns.length,
-        totalCount: data.vulns.length,
-        severity: hasCritical ? 'CRITICAL' : 'HIGH',
-        details: data.vulns.slice(0, 3).map((v: any) => ({
-          id: v.id,
-          summary: v.summary,
-          severity: v.severity || 'UNKNOWN'
-        }))
+        criticalCount: result.severity === 'CRITICAL' ? 1 : 0,
+        highCount: result.severity === 'HIGH' ? 1 : 0,
+        totalCount: 1,
+        severity: result.severity,
+        details: [{
+          id: result.cve || 'UNKNOWN',
+          summary: result.description || '',
+          severity: result.severity,
+          source: result.source,
+          externalAPIAvailable: result.externalAPIAvailable,
+        }]
       }
     }
 
-    return { hasVulnerabilities: false }
+    return { hasVulnerabilities: false, source: result.source }
   } catch (error) {
     console.error('CVE check error:', error)
     return { hasVulnerabilities: false, error: true }
   }
-}
-
-// Deep CSP Parser - Analyze CSP directives quality
-function analyzeCSP(cspValue: string) {
-  const issues: any[] = []
-
-  if (!cspValue) {
-    issues.push({
-      type: 'INSECURE_HEADERS',
-      severity: 'HIGH',
-      title: 'Missing Content Security Policy',
-      description: 'Content Security Policy (CSP) header is not set, leaving the application vulnerable to XSS and injection attacks.',
-      recommendation: 'Implement a comprehensive CSP header. Start with: default-src \'self\'; script-src \'self\'; style-src \'self\'; img-src \'self\' https:;',
-      owaspCategory: 'A03',
-    })
-    return issues
-  }
-
-  // Parse CSP directives
-  const directives: { [key: string]: string[] } = {}
-  const parts = cspValue.split(';').map(p => p.trim())
-
-  parts.forEach(part => {
-    const [directive, ...values] = part.split(/\s+/)
-    if (directive && values.length > 0) {
-      directives[directive] = values
-    }
-  })
-
-  // Check for dangerous patterns
-  const scriptSrc = directives['script-src'] || directives['default-src'] || []
-  const styleSrc = directives['style-src'] || directives['default-src'] || []
-  const objectSrc = directives['object-src'] || directives['default-src'] || []
-  const frameSrc = directives['frame-src'] || directives['default-src'] || []
-
-  // CRITICAL: Check for unsafe-inline in scripts
-  if (scriptSrc.includes("'unsafe-inline'")) {
-    issues.push({
-      type: 'MISCONFIGURATION',
-      severity: 'HIGH',
-      title: 'CSP Allows unsafe-inline for Scripts',
-      description: 'Content Security Policy allows inline scripts with \'unsafe-inline\', which can be exploited for XSS attacks.',
-      recommendation: 'Remove \'unsafe-inline\' from script-src directive. Use nonce-based CSP: script-src \'self\' \'nonce-xyz\'',
-      owaspCategory: 'A03',
-      evidence: { directive: 'script-src', dangerous: 'unsafe-inline' }
-    })
-  }
-
-  // CRITICAL: Check for unsafe-eval
-  if (scriptSrc.includes("'unsafe-eval'")) {
-    issues.push({
-      type: 'MISCONFIGURATION',
-      severity: 'HIGH',
-      title: 'CSP Allows unsafe-eval',
-      description: 'Content Security Policy allows eval() and similar functions with \'unsafe-eval\', which can be exploited.',
-      recommendation: 'Remove \'unsafe-eval\' from script-src directive. Avoid using eval() in your code.',
-      owaspCategory: 'A03',
-      evidence: { directive: 'script-src', dangerous: 'unsafe-eval' }
-    })
-  }
-
-  // MEDIUM: Check for unsafe-inline in styles
-  if (styleSrc.includes("'unsafe-inline'")) {
-    issues.push({
-      type: 'MISCONFIGURATION',
-      severity: 'MEDIUM',
-      title: 'CSP Allows unsafe-inline for Styles',
-      description: 'Content Security Policy allows inline styles with \'unsafe-inline\', which can be exploited for CSS-based attacks.',
-      recommendation: 'Remove \'unsafe-inline\' from style-src directive. Use nonce-based CSP for styles.',
-      owaspCategory: 'A03',
-      evidence: { directive: 'style-src', dangerous: 'unsafe-inline' }
-    })
-  }
-
-  // HIGH: Check for overly permissive wildcard sources
-  const checkPermissive = (directive: string, sources: string[], directiveName: string) => {
-    if (sources.includes('*') || sources.includes('*.com') || sources.includes('*.org')) {
-      const severity = directive === 'script-src' || directive === 'default-src' ? 'HIGH' : 'MEDIUM'
-      issues.push({
-        type: 'MISCONFIGURATION',
-        severity,
-        title: `CSP Allows Wildcard Origins in ${directiveName}`,
-        description: `Content Security Policy allows wildcard (*) or broad patterns in ${directiveName}, which defeats the purpose of CSP.`,
-        recommendation: `Replace wildcards with specific trusted domains in ${directiveName} directive.`,
-        owaspCategory: 'A03',
-        evidence: { directive: directiveName, sources: sources.filter(s => s.includes('*')) }
-      })
-    }
-  }
-
-  checkPermissive('script-src', scriptSrc, 'script-src')
-  checkPermissive('style-src', styleSrc, 'style-src')
-  checkPermissive('object-src', objectSrc, 'object-src')
-  checkPermissive('frame-src', frameSrc, 'frame-src')
-
-  // MEDIUM: Check for data: URLs (potentially dangerous)
-  const hasDataUrls = Object.values(directives).some((sources: string[]) =>
-    sources.some(src => src.includes('data:'))
-  )
-
-  if (hasDataUrls) {
-    issues.push({
-      type: 'MISCONFIGURATION',
-      severity: 'MEDIUM',
-      title: 'CSP Allows data: URLs',
-      description: 'Content Security Policy allows data: URLs, which can be exploited for XSS attacks via data URIs.',
-      recommendation: 'Restrict data: URLs to specific cases (e.g., data: image/png) or remove if not needed.',
-      owaspCategory: 'A03',
-      evidence: { dangerous: 'data: URLs allowed' }
-    })
-  }
-
-  // LOW: Check for missing critical directives
-  const criticalDirectives = ['default-src', 'script-src', 'style-src', 'img-src', 'connect-src']
-  const missingDirectives = criticalDirectives.filter(dir => !directives[dir])
-
-  if (missingDirectives.length > 0) {
-    issues.push({
-      type: 'MISCONFIGURATION',
-      severity: 'LOW',
-      title: 'Incomplete CSP Coverage',
-      description: `CSP is missing critical directives: ${missingDirectives.join(', ')}. This leaves some attack vectors unprotected.`,
-      recommendation: `Add missing directives: ${missingDirectives.map(d => `${d} 'self'`).join('; ')}`,
-      owaspCategory: 'A03',
-      evidence: { missing: missingDirectives }
-    })
-  }
-
-  // INFO: CSP exists but analyze quality
-  if (issues.length === 0) {
-    issues.push({
-      type: 'MISCONFIGURATION',
-      severity: 'INFO',
-      title: 'CSP Present (Basic Analysis)',
-      description: 'Content Security Policy is configured. No obvious security issues detected in basic analysis.',
-      recommendation: 'Consider implementing nonce-based CSP for better security, and regularly review CSP violations in browser console.',
-      owaspCategory: 'A03',
-    })
-  }
-
-  return issues
 }
 
 // Common Sensitive Files Discovery with Smart Content Validation
@@ -882,7 +714,7 @@ async function checkSensitiveFiles(baseUrl: string, domain: string) {
   ]
 
   // Smart ignore patterns based on detected stack
-  const IGNORE_PATTERNS = {
+  const IGNORE_PATTERNS: Record<string, string[]> = {
     'vercel': ['/wp-admin', '/phpmyadmin', '/administrator', '/.git', '/admin'],
     'nextjs': ['/wp-admin', '/phpmyadmin', '/administrator'],
     'netlify': ['/wp-admin', '/phpmyadmin', '/administrator'],
@@ -1036,7 +868,7 @@ async function checkSensitiveFiles(baseUrl: string, domain: string) {
             ? 'Delete .git folder from production or configure server to block .git access.'
             : file.includes('.env')
             ? 'Move .env files outside web root or configure server to deny access.'
-            : file.includes('log')
+            : file.includes('.log')
             ? 'Move log files outside web root or configure server to deny access.'
             : 'Configure server to deny access to sensitive files and documentation.',
           owaspCategory: 'A01',
@@ -1059,7 +891,7 @@ async function checkSensitiveFiles(baseUrl: string, domain: string) {
   return issues
 }
 
-// Vulnerability Scanner
+// Vulnerability Scanner with Enhanced Hybrid Approach
 async function scanVulnerabilities(url: string, domain: string) {
   const vulnerabilities: any[] = []
 
@@ -1114,106 +946,50 @@ async function scanVulnerabilities(url: string, domain: string) {
     const isErrorPage = [404, 403, 500, 502, 503].includes(response.status)
     const statusCode = response.status
 
-    // 0. Check DNS security configuration (SPF, DMARC, DKIM)
-    // Get DNS info first
-    const dnsInfo = await checkDNS(domain)
-
-    // Email security is only applicable if MX records exist
-    // Avoid penalizing score for missing SPF/DMARC if email is not used
-    if (dnsInfo.hasMXRecord) {
-      if (!dnsInfo.hasSPF) {
-        vulnerabilities.push({
-          type: 'EMAIL_SECURITY',
-          severity: 'HIGH',
-          title: 'Missing SPF Record',
-          description: 'Sender Policy Framework (SPF) record is not configured. This can allow email spoofing and phishing attacks.',
-          recommendation: 'Add SPF record to your DNS: v=spf1 include:_spf.google.com ~all (adjust for your email provider).',
-          owaspCategory: 'A01',
-        })
-      } else if (!dnsInfo.spfValid) {
-        vulnerabilities.push({
-          type: 'EMAIL_SECURITY',
-          severity: 'MEDIUM',
-          title: 'Weak SPF Configuration',
-          description: 'SPF record exists but uses weak policy (allows all senders with ~all or -all).',
-          recommendation: 'Strengthen SPF policy by replacing ~all with -all to reject unauthorized senders.',
-          owaspCategory: 'A01',
-        })
-      }
-
-      if (!dnsInfo.hasDMARC) {
-        vulnerabilities.push({
-          type: 'EMAIL_SECURITY',
-          severity: 'HIGH',
-          title: 'Missing DMARC Record',
-          description: 'Domain-based Message Authentication, Reporting and Conformance (DMARC) record is not configured.',
-          recommendation: 'Add DMARC record: v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com',
-          owaspCategory: 'A01',
-        })
-      } else if (!dnsInfo.dmarcValid) {
-        vulnerabilities.push({
-          type: 'EMAIL_SECURITY',
-          severity: 'MEDIUM',
-          title: 'Weak DMARC Policy',
-          description: `DMARC policy is set to '${dnsInfo.dmarcPolicy}' which may not provide adequate protection.`,
-          recommendation: 'Set DMARC policy to p=reject for maximum protection.',
-          owaspCategory: 'A01',
-        })
-      }
-
-      if (!dnsInfo.hasDKIM) {
-        vulnerabilities.push({
-          type: 'EMAIL_SECURITY',
-          severity: 'MEDIUM',
-          title: 'Missing DKIM Configuration',
-          description: 'DomainKeys Identified Mail (DKIM) is not configured for email authentication.',
-          recommendation: 'Configure DKIM with your email provider (Google Workspace, Office 365, etc.).',
-          owaspCategory: 'A01',
-        })
-      }
-    }
-
-    // 1. Check for missing security headers (Deduplication check)
+    // 0. Check for missing security headers (Deduplication check)
     const seenTitles = new Set<string>()
     const criticalHeaders = [
       { name: 'content-security-policy', type: 'INSECURE_HEADERS' },
       { name: 'strict-transport-security', type: 'INSECURE_HEADERS' },
       { name: 'x-frame-options', type: 'INSECURE_HEADERS' },
-      { name: 'x-content-type-options', type: 'INSECURE_HEADERS' }, // Only check in criticalHeaders list
+      { name: 'x-content-type-options', type: 'INSECURE_HEADERS' },
     ]
 
     criticalHeaders.forEach(({ name, type }) => {
       if (!headers[name.toLowerCase()]) {
         const title = `Missing Security Header: ${name}`
         if (!seenTitles.has(title)) {
-          vulnerabilities.push({
-            type,
-            severity: 'MEDIUM',
-            title,
-            description: `The ${name} header is not set, which can expose application to various security risks.`,
-            recommendation: `Implement ${name} header with appropriate values for your application.`,
-            owaspCategory: 'A05',
-          })
+          const missingCSP = OWASP_PATTERNS_DB['missing-csp'] as any
+          if (missingCSP && name === 'content-security-policy') {
+            vulnerabilities.push({
+              ...missingCSP,
+              title,
+              evidence: { url },
+            })
+          } else {
+            vulnerabilities.push({
+              type,
+              severity: 'MEDIUM',
+              title,
+              description: `The ${name} header is not set, which can expose application to various security risks.`,
+              recommendation: `Implement ${name} header with appropriate values for your application.`,
+              owaspCategory: 'A05',
+            })
+          }
           seenTitles.add(title)
         }
       }
     })
 
-    // 2. Deep CSP Analysis
-    const cspValue = headers['content-security-policy']
-    if (cspValue) {
-      const cspIssues = analyzeCSP(cspValue)
-      vulnerabilities.push(...cspIssues)
-    }
-
-    // 3. Check for libraries with CVEs using embedded database
-    // Removed naive "minVersion" check - rely solely on database for CVEs
+    // 1. Check for libraries with CVEs using HYBRID approach
     const libraryPatterns = [
       { pattern: /jquery[-.](\d+\.?\d*\.?\d*)/gi, name: 'jQuery' },
       { pattern: /react[-.](\d+\.?\d*\.?\d*)/gi, name: 'React' },
       { pattern: /angular[-.](\d+\.?\d*\.?\d*)/gi, name: 'Angular' },
       { pattern: /vue[-.](\d+\.?\d*\.?\d*)/gi, name: 'Vue.js' },
       { pattern: /bootstrap[-.](\d+\.?\d*\.?\d*)/gi, name: 'Bootstrap' },
+      { pattern: /lodash[-.](\d+\.?\d*\.?\d*)/gi, name: 'Lodash' },
+      { pattern: /moment[-.](\d+\.?\d*\.?\d*)/gi, name: 'Moment.js' },
     ]
 
     for (const { pattern, name } of libraryPatterns) {
@@ -1224,24 +1000,22 @@ async function scanVulnerabilities(url: string, domain: string) {
           if (versionMatch) {
             const version = versionMatch[1]
 
-            // Check for CVEs in this library version using embedded database
-            const cveResult = checkVulnerability(name, version)
+            // Check for CVEs using HYBRID approach
+            const cveResult = await checkLibraryCVEsHybrid(name, version)
 
-            if (cveResult) {
+            if (cveResult.hasVulnerabilities && cveResult.details[0]) {
               vulnerabilities.push({
                 type: 'VULNERABLE_SOFTWARE',
                 severity: cveResult.severity,
                 title: `${name} ${version} has Known Vulnerabilities`,
-                description: `Detected ${name} version ${version} with known security vulnerability: ${cveResult.cve}.`,
-                recommendation: `Update ${name} to the latest stable version immediately. Vulnerability type: ${cveResult.type}.`,
+                description: `Detected ${name} version ${version} with known security vulnerability.`,
+                recommendation: `Update ${name} to the latest stable version immediately.`,
                 owaspCategory: 'A06',
                 evidence: {
                   library: name,
                   version: version,
-                  cve: cveResult.cve,
-                  severity: cveResult.severity,
-                  type: cveResult.type
-                }
+                  ...cveResult.details[0],
+                },
               })
             }
           }
@@ -1251,7 +1025,7 @@ async function scanVulnerabilities(url: string, domain: string) {
 
     // Skip sensitive file checks if page returned error (avoid noise on 404s)
     if (!isErrorPage) {
-      // 4. Check for sensitive files exposure
+      // 2. Check for sensitive files exposure
       const sensitiveFileIssues = await checkSensitiveFiles(url)
       vulnerabilities.push(...sensitiveFileIssues)
     }
@@ -1270,7 +1044,7 @@ async function scanVulnerabilities(url: string, domain: string) {
           type: 'INFORMATION_DISCLOSURE',
           severity: 'LOW',
           title,
-          description: `Found ${matches.length} occurrence(s) of development-related comments in the HTML source.`,
+          description: `Found ${matches.length} occurrence(s) of development-related comments in HTML source.`,
           recommendation: 'Remove development comments and debugging information from production code.',
           owaspCategory: 'A01',
         })
@@ -1286,14 +1060,13 @@ async function scanVulnerabilities(url: string, domain: string) {
     eventHandlerPatterns.forEach((pattern) => {
       const matches = html.match(pattern)
       if (matches && matches.length > 0) {
-        vulnerabilities.push({
-          type: 'XSS',
-          severity: 'MEDIUM',
-          title: 'Inline Event Handlers Detected',
-          description: `Found ${matches.length} inline event handler(s) or javascript: protocol usage, which can be XSS vectors.`,
-          recommendation: 'Remove inline event handlers and use event listeners instead. Avoid javascript: protocol in href attributes.',
-          owaspCategory: 'A03',
-        })
+        const inlineHandlerPattern = OWASP_PATTERNS_DB['inline-event-handlers'] as any
+        if (inlineHandlerPattern) {
+          vulnerabilities.push({
+            ...inlineHandlerPattern,
+            evidence: { count: matches.length },
+          })
+        }
       }
     })
 
@@ -1301,14 +1074,13 @@ async function scanVulnerabilities(url: string, domain: string) {
     if (url.startsWith('https://')) {
       const httpResources = html.match(/http:\/\/[^"'\s>]+/gi)
       if (httpResources && httpResources.length > 0) {
-        vulnerabilities.push({
-          type: 'MISCONFIGURATION',
-          severity: 'MEDIUM',
-          title: 'Mixed Content Detected',
-          description: `Found ${httpResources.length} HTTP resource(s) loaded on HTTPS page. This can compromise security.`,
-          recommendation: 'Update all external resources to use HTTPS to prevent mixed content warnings and ensure secure connections.',
-          owaspCategory: 'A05',
-        })
+        const mixedContentPattern = OWASP_PATTERNS_DB['http-on-https'] as any
+        if (mixedContentPattern) {
+          vulnerabilities.push({
+            ...mixedContentPattern,
+            evidence: { count: httpResources.length },
+          })
+        }
       }
     }
 
@@ -1325,7 +1097,7 @@ async function scanVulnerabilities(url: string, domain: string) {
           type: 'INFORMATION_DISCLOSURE',
           severity: 'INFO',
           title,
-          description: 'Meta tags can disclose information about the technology stack or author.',
+          description: 'Meta tags can disclose information about technology stack or author.',
           recommendation: 'Consider removing unnecessary meta tags that disclose implementation details.',
           owaspCategory: 'A01',
         })
@@ -1343,6 +1115,7 @@ async function scanVulnerabilities(url: string, domain: string) {
         description: `Found ${insecureForms.length} form(s) with HTTP action on HTTPS page. Form data will be sent unencrypted.`,
         recommendation: 'Update all form actions to use HTTPS to protect sensitive data in transit.',
         owaspCategory: 'A02',
+        evidence: { count: insecureForms.length },
       })
     }
 
@@ -1350,55 +1123,38 @@ async function scanVulnerabilities(url: string, domain: string) {
     if (!isErrorPage) {
       // 8. Check for missing referrer policy
       if (!headers['referrer-policy']) {
-        vulnerabilities.push({
-          type: 'INSECURE_HEADERS',
-          severity: 'LOW',
-          title: 'Missing Referrer-Policy Header',
-          description: 'Referrer-Policy header is not set, which can leak sensitive information through the Referer header.',
-          recommendation: 'Set Referrer-Policy header to "strict-origin-when-cross-origin" or "no-referrer" for sensitive pages.',
-          owaspCategory: 'A05',
-        })
+        const missingReferrer = OWASP_PATTERNS_DB['missing-x-content-type-options'] as any
+        if (missingReferrer) {
+          vulnerabilities.push({
+            ...missingReferrer,
+            title: 'Missing Referrer-Policy Header',
+            evidence: { url },
+          })
+        }
       }
 
-      // 9. Check for missing X-Content-Type-Options (Checked in criticalHeaders, but here for consistency if needed)
-      // Already handled in criticalHeaders list, but check separately if needed?
-      // Keeping the logic simple to avoid duplicates.
-
-      // 10. Check for server technology disclosure
-      const server = headers['server']
-      if (server && server !== 'cloudflare') {
-        vulnerabilities.push({
-          type: 'INFORMATION_DISCLOSURE',
-          severity: 'LOW',
-          title: 'Server Technology Disclosure',
-          description: `Server header reveals: ${server}`,
-          recommendation: 'Configure server to hide or minimize server information in headers.',
-          owaspCategory: 'A01',
-        })
-      }
-
-      // 16. Social Media Metadata Analysis (Open Graph)
+      // 9. Social Media Metadata Analysis (Open Graph)
       const socialIssues = analyzeSocialMetadata(html)
       vulnerabilities.push(...socialIssues)
     }
 
-    // 11. Cookie Security Analysis
+    // 10. Cookie Security Analysis
     const cookieIssues = analyzeCookies(headers, html)
     vulnerabilities.push(...cookieIssues)
 
-    // 12. CORS Policy Analysis
+    // 11. CORS Policy Analysis
     const corsIssues = analyzeCORS(headers)
     vulnerabilities.push(...corsIssues)
 
-    // 13. SRI (Subresource Integrity) Check
+    // 12. SRI (Subresource Integrity) Check
     const sriIssues = checkSRI(html, url)
     vulnerabilities.push(...sriIssues)
 
-    // 14. Content Injection Check
+    // 13. Content Injection Check
     const injectionIssues = checkContentInjection(html, url)
     vulnerabilities.push(...injectionIssues)
 
-    // 15. WAF Detection
+    // 14. WAF Detection
     const wafDetected = detectWAF(headers)
     if (wafDetected.length > 0) {
       wafDetected.forEach((waf: any) => {
@@ -1416,9 +1172,53 @@ async function scanVulnerabilities(url: string, domain: string) {
         type: 'MISCONFIGURATION',
         severity: 'MEDIUM',
         title: 'No WAF Detected',
-        description: 'No Web Application Firewall detected. This may leave to application vulnerable to automated attacks.',
+        description: 'No Web Application Firewall detected. This may leave application vulnerable to automated attacks.',
         recommendation: 'Consider implementing a WAF (Cloudflare, AWS WAF, ModSecurity, etc.) to protect against common attacks.',
       })
+    }
+
+    // 15. SPA Pattern Detection (Next.js, React patterns)
+    if (html.includes('data-nextjs-')) {
+      const nextjsDataHref = SPA_PATTERNS_DB['nextjs-data-href'] as any
+      if (nextjsDataHref) {
+        vulnerabilities.push({
+          ...nextjsDataHref,
+          evidence: { url },
+        })
+      }
+    }
+
+    if (html.includes('__NEXT_DATA__')) {
+      const nextjsBuildId = SPA_PATTERNS_DB['nextjs-build-id-leak'] as any
+      if (nextjsBuildId) {
+        vulnerabilities.push({
+          ...nextjsBuildId,
+          evidence: { url },
+        })
+      }
+    }
+
+    // Check for source map references
+    const sourceMapPattern = /sourceMappingURL=|# sourceMappingURL=/gi
+    if (sourceMapPattern.test(html)) {
+      const sourceMapRef = SPA_PATTERNS_DB['source-map-reference'] as any
+      if (sourceMapRef) {
+        vulnerabilities.push({
+          ...sourceMapRef,
+          evidence: { url },
+        })
+      }
+    }
+
+    // Check for Webpack devtools exposure
+    if (html.includes('__webpack_') || html.includes('webpack://')) {
+      const webpackDevtools = SPA_PATTERNS_DB['webpack-devtools-exposed'] as any
+      if (webpackDevtools) {
+        vulnerabilities.push({
+          ...webpackDevtools,
+          evidence: { url },
+        })
+      }
     }
 
     return vulnerabilities
@@ -1505,6 +1305,10 @@ export async function GET(request: NextRequest) {
   console.log('Parsed URL:', parsedUrl)
 
   try {
+    // Check internet availability for enhanced mode
+    const internetAvailable = await hasInternetAccess()
+    console.log('Internet available:', internetAvailable)
+
     // Run all checks in parallel
     console.log('Starting parallel checks...')
     const [
@@ -1535,7 +1339,7 @@ export async function GET(request: NextRequest) {
     if (!isAccessible) {
       console.log('Website is not accessible')
       return NextResponse.json({
-        error: 'Website is not accessible. Please check the URL and ensure the website is online.',
+        error: 'Website is not accessible. Please check URL and ensure that website is online.',
         details: {
           url: url,
           domain: parsedUrl.domain,
@@ -1605,7 +1409,7 @@ export async function GET(request: NextRequest) {
     else if (overallScore < 80) riskLevel = 'LOW'
     else riskLevel = 'INFO'
 
-    console.log('Calculated scores and risk level:', { averageScore, penalty, overallScore, riskLevel })
+    console.log('Calculated scores and risk level:', { averageScore, penalty, overallScore, riskLevel, internetAvailable })
 
     console.log('Preparing scan result...')
 
@@ -1631,7 +1435,7 @@ export async function GET(request: NextRequest) {
       dnsCheck: {
         ...dnsCheck,
         dnsRecords: dnsCheck.dnsRecords,
-        issues: dnsCheck.issues,
+        issues: dnsCheck.dnsRecords.issues,
       },
       performance: {
         ...performance,
@@ -1642,6 +1446,8 @@ export async function GET(request: NextRequest) {
         evidence: vuln.evidence,
       })),
       portScans: portScans,
+      internetAvailable,
+      offlineMode: dnsCheck.offlineMode,
     }
 
     const response = {
@@ -1655,10 +1461,16 @@ export async function GET(request: NextRequest) {
       completedAt: scan.completedAt,
       sslCheck: scan.sslCheck,
       headersCheck: scan.headersCheck,
-      dnsCheck: scan.dnsCheck,
+      dnsCheck: {
+        ...scan.dnsCheck,
+        hasDNSSEC: scan.dnsCheck.hasDNSSEC,
+        dnssecDetails: scan.dnsCheck.dnssec,
+      },
       performance: scan.performance,
       vulnerabilities: scan.vulnerabilities,
       portScans: scan.portScans,
+      internetAvailable: scan.internetAvailable,
+      offlineMode: scan.offlineMode,
     }
 
     console.log('Final response prepared:', response)
@@ -1666,7 +1478,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
   } catch (error) {
     console.error('Security scan error:', error)
-    console.error('Error stack:', error.stack)
+    console.error('Error stack:', (error as Error).stack)
     return NextResponse.json(
       { error: 'Failed to perform security scan. The website might be inaccessible or there was a server error.' },
       { status: 500 }
