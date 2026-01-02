@@ -727,10 +727,12 @@ ${v.recommendation}
                     <CardContent>
                       <div className="grid md:grid-cols-2 gap-4">
                         {[
-                          { key: 'hasSPF', label: 'SPF (Sender Policy Framework)', icon: <Mail className="h-4 w-4" /> },
-                          { key: 'hasDMARC', label: 'DMARC (Domain-based Message Authentication)', icon: <Shield className="h-4 w-4" /> },
-                          { key: 'hasDKIM', label: 'DKIM (DomainKeys Identified Mail)', icon: <Key className="h-4 w-4" /> },
                           { key: 'hasDNSSEC', label: 'DNSSEC (DNS Security Extensions)', icon: <Lock className="h-4 w-4" /> },
+                          ...(scanResult.dnsCheck.hasMXRecord ? [
+                            { key: 'hasSPF', label: 'SPF (Sender Policy Framework)', icon: <Mail className="h-4 w-4" /> },
+                            { key: 'hasDMARC', label: 'DMARC (Domain-based Message Authentication)', icon: <Shield className="h-4 w-4" /> },
+                            { key: 'hasDKIM', label: 'DKIM (DomainKeys Identified Mail)', icon: <Key className="h-4 w-4" /> },
+                          ] : []),
                         ].map((check) => (
                           <Card key={check.key} className="border-2">
                             <CardContent className="pt-4">
