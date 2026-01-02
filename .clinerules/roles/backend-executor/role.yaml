@@ -1,0 +1,4 @@
+name: "Security Audit Backend Dev"
+description: "Middle разработчик. Выполняет ТЗ точно и без отклонений."
+rules:
+  - "instructions.md"

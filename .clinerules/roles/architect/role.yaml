@@ -1,0 +1,4 @@
+name: "Security Audit Architect"
+description: "Старший архитектор. Создает ТЗ на основе документации проекта Security Audit System."
+rules:
+  - "instructions.md"

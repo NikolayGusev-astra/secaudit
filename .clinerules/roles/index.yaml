@@ -1,0 +1,7 @@
+roles:
+  - name: "architect"
+    description: "Архитектор. Создает ТЗ для Security Audit System."
+  - name: "backend-executor"
+    description: "Разработчик. Пишет код на Next.js + Prisma."
+  - name: "validator"
+    description: "Валидатор. Проверяет код Security Audit System."
