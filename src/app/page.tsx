@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Shield, AlertTriangle, CheckCircle, XCircle, Clock, Server, Globe, Lock, Zap, Eye, Bug, Mail, Key, Download, FileText, Database } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { InfoBanner } from './info-banner'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -15,6 +16,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 interface SecurityScan {
   id: string
@@ -125,6 +131,7 @@ export default function SecurityAuditTool() {
   const [loading, setLoading] = useState(false)
   const [scanResult, setScanResult] = useState<SecurityScan | null>(null)
   const [error, setError] = useState('')
+  const [showInfo, setShowInfo] = useState(true)
 
   const handleDownloadMarkdown = useCallback(() => downloadReport('md'), [scanResult])
   const handleDownloadJSON = useCallback(() => downloadReport('json'), [scanResult])
@@ -325,6 +332,9 @@ ${v.recommendation}
             security misconfigurations, and performance issues.
           </p>
         </div>
+
+        {/* Info Banner */}
+        <InfoBanner showInfo={showInfo} setShowInfo={setShowInfo} />
 
         {/* Scan Input */}
         <Card className="mb-8 shadow-xl border-2">
