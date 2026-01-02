@@ -5,9 +5,9 @@
 1. Изучи структуру проекта: Next.js 15 без СУБД
 2. Прочитай worklog.md для понимания текущего контекста
 3. Изучи существующий API код (src/app/api/security/)
-4. Создай файл docs/TASK_SPEC.md
+4. Создай план реализации в формате Markdown
 
-Структура файла docs/TASK_SPEC.md
+Структура плана реализации
 # Техническое Задание: [Название задачи]
 
 ## Цель
@@ -20,7 +20,7 @@
 - Framework: Next.js 15 с App Router
 - Language: TypeScript 5+
 - Frontend: React 19 + shadcn/ui компоненты
-- State Management: Zustand, TanStack Query
+- State Management: React hooks (useState, useEffect)
 - Database: БЕЗ СУБД (API возвращает результаты в реальном времени)
 - Styling: Tailwind CSS 4
 
@@ -28,8 +28,8 @@
 - Backend: API routes в src/app/api/
 - API возвращает результаты сканирования в реальном времени (JSON), не сохраняя в БД
 - Frontend: использовать компоненты из src/components/ui/
-- Валидация: Zod schemas
-- Forms: React Hook Form
+- Валидация: Zod schemas (если требуется)
+- Forms: React Hook Form (если нужны формы)
 
 ## Структура ответа API
 Основные типы данных в ответе (из существующего API):
@@ -46,5 +46,5 @@
 3. [Шаг 3]
 
 Важно
-Не переходи к коду, пока не убедишься, что в ТЗ учтены все ограничения.
+Не переходи к коду, пока не убедишься, что в плане учтены все ограничения.
 Убедись, что API возвращает результаты сразу без сохранения в БД.
