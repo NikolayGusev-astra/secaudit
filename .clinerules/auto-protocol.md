@@ -13,24 +13,25 @@
 Прочитай: WORKLOG.md или worklog.md для контекста
 Анализ:
 Сравни задачу с текущей архитектурой проекта.
-Проверь наличие конфликтов (например, "использовать Python" или внешние ORM вместо Prisma).
+Проверь наличие конфликтов (например, "использовать Python").
 Решение:
 Сформируй план действий.
-Укажи Технологический Стек: Next.js 15, TypeScript, Prisma, PostgreSQL.
+Укажи Технологический Стек: Next.js 15, TypeScript, Zod.
 ПЕРЕХОДИ К ФАЗЕ 2.
 (Не пиши код в этой фазе. Если написал — ты сломал протокол).
 
 ФАЗА 2: EXECUTOR (Выполнение)
-Действуй как Fullstack Developer (Next.js + Prisma).
+Действуй как Fullstack Developer (Next.js).
 
 Контекст:
 Используй план из Фазы 1.
-Следуй структуре проекта: src/app, src/components, src/lib, prisma/schema.prisma.
+Следуй структуре проекта: src/app, src/components, src/lib.
 Кодинг:
 Backend: Next.js API routes в src/app/api/
-Database: Prisma ORM с типизацией TypeScript
+API возвращает результаты сканирования в реальном времени (JSON)
 Frontend: React 19 + shadcn/ui компоненты
 State: Zustand, TanStack Query для данных
+Валидация: Zod schemas
 Контроль:
 Если возникла ошибка 2 раза подряд (Rabbit Hole) ->
 Запиши ошибку в worklog.md.
@@ -41,9 +42,9 @@ State: Zustand, TanStack Query для данных
 
 Проверка Стека:
 Код написан на TypeScript/Next.js? (Нет Python/PHP/etc).
-База данных использует Prisma ORM? (Нет прямых SQL без Prisma).
+API routes возвращают результаты в реальном времени? (Нет сохранения в БД).
 Frontend использует shadcn/ui компоненты?
-Типы данных соответствуют Prisma schema?
+Валидация с Zod?
 Решение:
 ЕСЛИ ОШИБКА:
 ЖЕСТКО отбрось код из Фазы 2.

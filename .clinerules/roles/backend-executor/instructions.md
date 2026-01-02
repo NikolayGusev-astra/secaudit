@@ -7,7 +7,6 @@
 СТРОГОЕ СООТВЕТСТВИЕ СТЕКУ:
 Язык: TypeScript / Node.js.
 Фреймворк: Next.js 15 с App Router.
-База данных: Prisma ORM + PostgreSQL.
 Никакого Python, PHP или других языков.
 
 Backend Разработка
@@ -15,13 +14,8 @@ API Routes:
 - Создавай API routes в src/app/api/[имя]/route.ts
 - Используй TypeScript для типизации запросов и ответов
 - Валидируйте входящие данные с помощью Zod schemas
-
-База данных (Prisma):
-- Все операции с БД выполняются ТОЛЬКО через Prisma Client (src/lib/db.ts)
-- При изменении схемы сначала обнови prisma/schema.prisma
-- Запусти: `npx prisma generate` для генерации типов
-- Запусти: `npx prisma db push` для применения изменений к БД
-- Используй существующие типы из Prisma schema (SecurityScan, SSLCheck и т.д.)
+- API должно возвращать результаты сканирования в реальном времени (JSON)
+- НЕ СОХРАНЯТЬ результаты в базу данных
 
 Frontend Разработка
 Компоненты:
@@ -40,13 +34,28 @@ Security Auditing Специфика
 - src/lib/vulnerability-db.js - база уязвимостей
 - src/app/api/security/ - существующие API endpoints
 
+Типы данных API
+API возвращает объект со следующими полями:
+- id: string (уникальный ID сканирования)
+- url: string (URL сканируемого сайта)
+- domain: string (домен)
+- status: string (COMPLETED)
+- overallScore: number (0-100)
+- riskLevel: string (CRITICAL, HIGH, MEDIUM, LOW, INFO)
+- sslCheck: объект с данными SSL/TLS
+- headersCheck: объект с проверкой заголовков
+- dnsCheck: объект с проверкой DNS
+- performance: объект с метриками производительности
+- vulnerabilities: массив найденных уязвимостей
+- portScans: результаты сканирования портов
+
 Безопасность:
 - Обрабатывайте ошибки gracefully, не раскрывайте внутренние детали
 - Валидируйте все URL и домены перед сканированием
 - Добавляйте rate limiting для security scan endpoints
 
 Rabbit Hole (Правило безопасности)
-Если ты пытаешься решить одну и ту же ошибку (например, миграция Prisma падает) более 2-х раз:
+Если ты пытаешься решить одну и ту же ошибку более 2-х раз:
 
 СТОП. Не трать токены.
 Открой worklog.md.
@@ -57,6 +66,5 @@ Rabbit Hole (Правило безопасности)
 Финал
 После завершения кода:
 
-1. Сгенерируй Prisma клиент: `npx prisma generate`
-2. Сделай git add . && git commit -m "[описание изменений]".
-3. Сообщи что готов к валидации.
+1. Сделай git add . && git commit -m "[описание изменений]".
+2. Сообщи что готов к валидации.
