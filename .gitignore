@@ -45,5 +45,9 @@ local-*
 dev.log
 test
 prompt
-
 server.log
+
+# Database & Sensitive Data
+prisma/schema.prisma
+db/
+upload/
