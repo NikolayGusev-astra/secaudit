@@ -33,6 +33,24 @@ function parseUrl(url: string) {
   }
 }
 
+// Helper function to detect email functionality on website
+function detectEmailFunctionality(url: string, domain: string): boolean {
+  // Patterns for email-related functionality
+  const emailPatterns = [
+    /<form[^>]*action=["'][^"']+["'][^>]*>/gi,  // Contact forms
+    /<input[^>]*type=["'][^"']+["'][^>]*email["']/gi,  // Email inputs
+    /<input[^>]*name=["'][^"']+["'][^>]*newsletter["']/gi,  // Newsletter signup
+    /<a[^>]+href=["']mailto:[^"']+["'][^>]*>/gi,  // Mailto links
+    /<button[^>]+href=["'][^"']+["'][^>]*subscribe["']/gi,  // Subscribe buttons
+    /(?:signup|register|newsletter|contact)[\s-]+(?:form|button|a)/gi,  // Email-related URLs
+  ]
+  
+  return emailPatterns.some(pattern => {
+    const domainPattern = new RegExp(domain.replace(/\./g, '\\.'), 'gi')
+    return pattern.test(url) || domainPattern.test(url)
+  })
+}
+
 // SSL/TLS Certificate Checker
 async function checkSSL(hostname: string) {
   try {
@@ -228,7 +246,7 @@ async function checkSecurityHeaders(url: string) {
 }
 
 // DNS Checker using enhanced dnssec-checker
-async function checkDNS(domain: string) {
+async function checkDNS(domain: string, url: string) {
   try {
     // Use enhanced DNS check with DNSSEC
     const dnsCheck = await performFullDNSCheck(domain)
@@ -255,11 +273,11 @@ async function checkDNS(domain: string) {
     
     // Calculate score
     let score = 0
-    if (dnsCheck.dnsRecords.aRecords.length > 0) score += 20
-    if (dnsCheck.dnsRecords.nsRecords.length > 0) score += 10
+    if (dnsCheck.aRecords.length > 0) score += 20
+    if (dnsCheck.nsRecords.length > 0) score += 10
 
     // Only check email security if MX records exist
-    if (dnsCheck.dnsRecords.mxRecords.length > 0) {
+    if (dnsCheck.mxRecords.length > 0) {
       if (hasSPF) score += 20
       if (hasDMARC) score += 20
       if (hasDKIM) score += 15
@@ -279,15 +297,15 @@ async function checkDNS(domain: string) {
       score += 10
     }
 
-    if (dnsCheck.dnsRecords.mxRecords.length > 0) score += 15
+    if (dnsCheck.mxRecords.length > 0) score += 15
 
     return {
       ...dnsCheck,
-      hasARecord: dnsCheck.dnsRecords.aRecords.length > 0,
-      hasAAAARecord: dnsCheck.dnsRecords.aaaaRecords.length > 0,
-      hasMXRecord: dnsCheck.dnsRecords.mxRecords.length > 0,
-      hasTXTRecord: dnsCheck.dnsRecords.txtRecords.length > 0,
-      hasNSRecord: dnsCheck.dnsRecords.nsRecords.length > 0,
+      hasARecord: dnsCheck.aRecords.length > 0,
+      hasAAAARecord: dnsCheck.aaaaRecords.length > 0,
+      hasMXRecord: dnsCheck.mxRecords.length > 0,
+      hasTXTRecord: dnsCheck.txtRecords.length > 0,
+      hasNSRecord: dnsCheck.nsRecords.length > 0,
       hasSPF,
       spfValid: hasSPF,
       hasDMARC,
@@ -295,194 +313,7 @@ async function checkDNS(domain: string) {
       dmarcValid: hasDMARC,
       hasDKIM,
       hasDNSSEC: dnsCheck.dnssec && dnsCheck.dnssec.hasDNSSEC,
-      dnsRecords: dnsCheck.dnsRecords.aRecords.length + dnsCheck.dnsRecords.aaaaRecords.length,
-      issues: dnsIssues,
-      score,
-      offlineMode: dnsCheck.offlineMode,
-    }
-  } catch (error) {
-    console.error('DNS check error:', error)
-    return {
-      hasARecord: false,
-      hasAAAARecord: false,
-      hasMXRecord: false,
-      hasTXTRecord: false,
-      hasNSRecord: false,
-      hasSPF: false,
-      spfRecord: undefined,
-      spfValid: false,
-      hasDMARC: false,
-      dmarcRecord: undefined,
-      dmarcPolicy: undefined,
-      dmarcValid: false,
-      hasDKIM: false,
-      hasDNSSEC: score,
-      dnsRecords: [],
-      issues: [{ type: 'CONFIGURATION', severity: 'HIGH', title: 'Failed to perform DNS lookup', description: 'Network error', recommendation: 'Check network connectivity' }],
-      score: 0,
-      offlineMode: true,
-    }
-  }
-}
-// DNS Checker using enhanced dnssec-checker
-async function checkDNS(domain: string) {
-  try {
-    // Use enhanced DNS check with DNSSEC
-    const dnsCheck = await performFullDNSCheck(domain)
-    const dnsIssues = dnsCheck.dnsRecords.issues || []
-
-    const hasSPF = dnsCheck.dnsRecords.txtRecords.some(txt =>
-      typeof txt === 'string' && txt.toLowerCase().startsWith('v=spf1')
-    )
-
-    const hasDMARC = dnsCheck.dnsRecords.txtRecords.some(txt =>
-      typeof txt === 'string' && (
-        txt.toLowerCase().includes('v=dmarc1') ||
-        txt.toLowerCase().includes('v=dmarc')
-      )
-    )
-
-    const hasDKIM = dnsCheck.dnsRecords.txtRecords.some(txt =>
-      typeof txt === 'string' && txt.toLowerCase().includes('v=dkim1')
-    )
-    
-    // Detect if website has email functionality (contact forms, newsletter, signup, etc.)
-    // This affects scoring: email features require SPF/DMARC/DKIM protection
-    const hasEmailFunctionality = detectEmailFunctionality(url, domain)
-    
-    // Calculate score
-    let score = 0
-    if (dnsCheck.dnsRecords.aRecords.length > 0) score += 20
-    if (dnsCheck.dnsRecords.nsRecords.length > 0) score += 10
-
-    // Only check email security if MX records exist
-    if (dnsCheck.dnsRecords.mxRecords.length > 0) {
-      if (hasSPF) score += 20
-      if (hasDMARC) score += 20
-      if (hasDKIM) score += 15
-    } else {
-      if (dnsCheck.offlineMode) {
-        const offlineIssue = {
-          type: 'CONFIGURATION' as 'MISSING_RECORD' | 'RECORD_COUNT' | 'CONFIGURATION',
-          severity: 'INFO' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO',
-          title: 'Offline Mode',
-          description: 'DNS checks are unavailable in offline mode',
-          recommendation: 'Network access required for DNS checks',
-        }
-        dnsIssues.push(offlineIssue as any)
-      }
-      // Add bonus score if MX records don't exist (email not used)
-      // Email security is N/A, not a vulnerability
-      score += 10
-    }
-
-    if (dnsCheck.dnsRecords.mxRecords.length > 0) score += 15
-
-    return {
-      ...dnsCheck,
-      hasARecord: dnsCheck.dnsRecords.aRecords.length > 0,
-      hasAAAARecord: dnsCheck.dnsRecords.aaaaRecords.length > 0,
-      hasMXRecord: dnsCheck.dnsRecords.mxRecords.length > 0,
-      hasTXTRecord: dnsCheck.dnsRecords.txtRecords.length > 0,
-      hasNSRecord: dnsCheck.dnsRecords.nsRecords.length > 0,
-      hasSPF,
-      spfValid: hasSPF,
-      hasDMARC,
-      dmarcPolicy: hasDMARC ? 'enabled' : 'disabled',
-      dmarcValid: hasDMARC,
-      hasDKIM,
-      hasDNSSEC: dnsCheck.dnssec && dnsCheck.dnssec.hasDNSSEC,
-      dnsRecords: dnsCheck.dnsRecords.aRecords.length + dnsCheck.dnsRecords.aaaaRecords.length,
-      issues: dnsIssues,
-      score,
-      offlineMode: dnsCheck.offlineMode,
-    }
-  } catch (error) {
-    console.error('DNS check error:', error)
-    return {
-      hasARecord: false,
-      hasAAAARecord: false,
-      hasMXRecord: false,
-      hasTXTRecord: false,
-      hasNSRecord: false,
-      hasSPF: false,
-      spfRecord: undefined,
-      spfValid: false,
-      hasDMARC: false,
-      dmarcRecord: undefined,
-      dmarcPolicy: undefined,
-      dmarcValid: false,
-      hasDKIM: false,
-      hasDNSSEC: false,
-      dnsRecords: [],
-      issues: [{ type: 'CONFIGURATION', severity: 'HIGH', title: 'Failed to perform DNS lookup', description: 'Network error', recommendation: 'Check network connectivity' }],
-      score: 0,
-      offlineMode: true,
-    }
-  }
-}
-
-// Helper function to detect email functionality on website
-function detectEmailFunctionality(url: string, domain: string): boolean {
-  // Patterns for email-related functionality
-  const emailPatterns = [
-    /<form[^>]*action=["'][^"']+["'][^>]*>/gi,  // Contact forms
-    /<input[^>]*type=["'][^"']+["'][^>]*email["']/gi,  // Email inputs
-    /<input[^>]*name=["'][^"']+["'][^>]*newsletter["']/gi,  // Newsletter signup
-    /<a[^>]+href=["']mailto:[^"']+["'][^>]*>/gi,  // Mailto links
-    /<button[^>]+href=["'][^"']+["'][^>]*subscribe["']/gi,  // Subscribe buttons
-    /(?:signup|register|newsletter|contact)[\s-]+(?:form|button|a)/gi,  // Email-related URLs
-  ]
-  
-  return emailPatterns.some(pattern => {
-    const domainPattern = new RegExp(domain.replace(/\./g, '\\.'), 'gi')
-    return pattern.test(url) || domainPattern.test(url)
-  })
-}
-
-    // Calculate score
-    let score = 0
-    if (dnsCheck.dnsRecords.aRecords.length > 0) score += 20
-    if (dnsCheck.dnsRecords.nsRecords.length > 0) score += 10
-
-    // Only check email security if MX records exist
-    if (dnsCheck.dnsRecords.mxRecords.length > 0) {
-      if (hasSPF) score += 20
-      if (hasDMARC) score += 20
-      if (hasDKIM) score += 15
-    } else {
-      if (dnsCheck.offlineMode) {
-        const offlineIssue = {
-          type: 'CONFIGURATION' as 'MISSING_RECORD' | 'RECORD_COUNT' | 'CONFIGURATION',
-          severity: 'INFO' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO',
-          title: 'Offline Mode',
-          description: 'DNS checks are unavailable in offline mode',
-          recommendation: 'Network access required for DNS checks',
-        }
-        dnsIssues.push(offlineIssue as any)
-      }
-      // Add bonus score if MX records don't exist (email not used)
-      // Email security is N/A, not a vulnerability
-      score += 10
-    }
-
-    if (dnsCheck.dnsRecords.mxRecords.length > 0) score += 15
-
-    return {
-      ...dnsCheck,
-      hasARecord: dnsCheck.dnsRecords.aRecords.length > 0,
-      hasAAAARecord: dnsCheck.dnsRecords.aaaaRecords.length > 0,
-      hasMXRecord: dnsCheck.dnsRecords.mxRecords.length > 0,
-      hasTXTRecord: dnsCheck.dnsRecords.txtRecords.length > 0,
-      hasNSRecord: dnsCheck.dnsRecords.nsRecords.length > 0,
-      hasSPF,
-      spfValid: hasSPF,
-      hasDMARC,
-      dmarcPolicy: hasDMARC ? 'enabled' : 'disabled',
-      dmarcValid: hasDMARC,
-      hasDKIM,
-      hasDNSSEC: dnsCheck.dnssec && dnsCheck.dnssec.hasDNSSEC,
-      dnsRecords: dnsCheck.dnsRecords.aRecords.length + dnsCheck.dnsRecords.aaaaRecords.length,
+      dnsRecords: dnsCheck.aRecords.length + dnsCheck.aaaaRecords.length,
       issues: dnsIssues,
       score,
       offlineMode: dnsCheck.offlineMode,
@@ -1517,7 +1348,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       checkSSL(parsedUrl.domain),
       checkSecurityHeaders(url),
-      checkDNS(parsedUrl.domain),
+      checkDNS(parsedUrl.domain, url),
       checkPerformance(url),
       scanVulnerabilities(url, parsedUrl.domain),
       scanPorts(parsedUrl.domain),
@@ -1608,7 +1439,6 @@ export async function GET(request: NextRequest) {
 
     console.log('Preparing scan result...')
 
-      // Create scan object for response (no database)
     const scan = {
       id: `scan-${Date.now()}`,
       url: url,
