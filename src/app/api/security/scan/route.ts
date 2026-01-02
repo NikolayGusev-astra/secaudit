@@ -232,6 +232,7 @@ async function checkDNS(domain: string) {
   try {
     // Use enhanced DNS check with DNSSEC
     const dnsCheck = await performFullDNSCheck(domain)
+    const dnsIssues = dnsCheck.dnsRecords.issues || []
 
     const hasSPF = dnsCheck.dnsRecords.txtRecords.some(txt =>
       typeof txt === 'string' && txt.toLowerCase().startsWith('v=spf1')
@@ -267,7 +268,7 @@ async function checkDNS(domain: string) {
           description: 'DNS checks are unavailable in offline mode',
           recommendation: 'Network access required for DNS checks',
         }
-        dnsCheck.dnsRecords.issues.push(offlineIssue as any)
+        dnsIssues.push(offlineIssue as any)
       }
     }
 
@@ -286,9 +287,9 @@ async function checkDNS(domain: string) {
       dmarcPolicy: hasDMARC ? 'enabled' : 'disabled',
       dmarcValid: hasDMARC,
       hasDKIM,
-      hasDNSSEC: dnsCheck.dnssec.hasDNSSEC,
+      hasDNSSEC: dnsCheck.dnssec && dnsCheck.dnssec.hasDNSSEC,
       dnsRecords: dnsCheck.dnsRecords.aRecords.length + dnsCheck.dnsRecords.aaaaRecords.length,
-      issues: dnsCheck.dnsRecords.issues,
+      issues: dnsIssues,
       score,
       offlineMode: dnsCheck.offlineMode,
     }
@@ -534,7 +535,7 @@ function detectWAF(headers: Record<string, string>) {
     'barracuda': 'Barracuda WAF',
   }
 
-  const detected = []
+  const detected: Array<{ signature: string; name: string }> = []
   const headerString = JSON.stringify(headers).toLowerCase()
 
   Object.entries(wafSignatures).forEach(([signature, name]) => {
@@ -896,7 +897,8 @@ async function scanVulnerabilities(url: string, domain: string) {
   const vulnerabilities: any[] = []
 
   // Skip vulnerability checks for major protected sites
-  const isProtectedSite = domain.includes('x.com') ||
+  const isProtectedSite = domain && typeof domain === 'string' && (
+                         domain.includes('x.com') ||
                          domain.includes('twitter.com') ||
                          domain.includes('facebook.com') ||
                          domain.includes('google.com') ||
@@ -922,6 +924,7 @@ async function scanVulnerabilities(url: string, domain: string) {
                          domain.includes('stripe.com') ||
                          domain.includes('paypal.com') ||
                          domain.includes('shopify.com')
+                        )
 
   if (isProtectedSite) {
     // Return minimal vulnerabilities for protected sites
@@ -956,7 +959,7 @@ async function scanVulnerabilities(url: string, domain: string) {
     ]
 
     criticalHeaders.forEach(({ name, type }) => {
-      if (!headers[name.toLowerCase()]) {
+      if (!headers || !headers[name.toLowerCase()]) {
         const title = `Missing Security Header: ${name}`
         if (!seenTitles.has(title)) {
           const missingCSP = OWASP_PATTERNS_DB['missing-csp'] as any
@@ -1003,7 +1006,7 @@ async function scanVulnerabilities(url: string, domain: string) {
             // Check for CVEs using HYBRID approach
             const cveResult = await checkLibraryCVEsHybrid(name, version)
 
-            if (cveResult.hasVulnerabilities && cveResult.details[0]) {
+            if (cveResult.hasVulnerabilities && cveResult.details && cveResult.details[0]) {
               vulnerabilities.push({
                 type: 'VULNERABLE_SOFTWARE',
                 severity: cveResult.severity,
@@ -1026,7 +1029,7 @@ async function scanVulnerabilities(url: string, domain: string) {
     // Skip sensitive file checks if page returned error (avoid noise on 404s)
     if (!isErrorPage) {
       // 2. Check for sensitive files exposure
-      const sensitiveFileIssues = await checkSensitiveFiles(url)
+      const sensitiveFileIssues = await checkSensitiveFiles(url, domain)
       vulnerabilities.push(...sensitiveFileIssues)
     }
 
@@ -1413,7 +1416,7 @@ export async function GET(request: NextRequest) {
 
     console.log('Preparing scan result...')
 
-    // Create scan object for response (no database)
+      // Create scan object for response (no database)
     const scan = {
       id: `scan-${Date.now()}`,
       url: url,
@@ -1435,11 +1438,11 @@ export async function GET(request: NextRequest) {
       dnsCheck: {
         ...dnsCheck,
         dnsRecords: dnsCheck.dnsRecords,
-        issues: dnsCheck.dnsRecords.issues,
+        issues: Array.isArray(dnsCheck.dnsRecords) ? (dnsCheck.dnsRecords as any).issues : [],
       },
       performance: {
         ...performance,
-        recommendations: performance.recommendations,
+        recommendations: performance.recommendations || [],
       },
       vulnerabilities: vulnerabilities.map((vuln) => ({
         ...vuln,
@@ -1464,7 +1467,7 @@ export async function GET(request: NextRequest) {
       dnsCheck: {
         ...scan.dnsCheck,
         hasDNSSEC: scan.dnsCheck.hasDNSSEC,
-        dnssecDetails: scan.dnsCheck.dnssec,
+        dnssecDetails: (scan.dnsCheck as any).dnssec,
       },
       performance: scan.performance,
       vulnerabilities: scan.vulnerabilities,
