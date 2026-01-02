@@ -46,7 +46,7 @@ function generateMarkdownReport(scan: any) {
 ${critical.length === 0 ? '✅ No critical vulnerabilities found' : critical.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
-**Type:** ${v.type}
+**Type:** ${v.type || 'MISCELLANEOUS'}
 **Description:** ${v.description}
 **Recommendation:** ${v.recommendation}
 **OWASP Category:** ${v.owaspCategory || 'N/A'}
@@ -59,7 +59,7 @@ ${critical.length === 0 ? '✅ No critical vulnerabilities found' : critical.map
 ${high.length === 0 ? '✅ No high severity vulnerabilities found' : high.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
-**Type:** ${v.type}
+**Type:** ${v.type || 'MISCELLANEOUS'}
 **Description:** ${v.description}
 **Recommendation:** ${v.recommendation}
 **OWASP Category:** ${v.owaspCategory || 'N/A'}
@@ -72,7 +72,7 @@ ${high.length === 0 ? '✅ No high severity vulnerabilities found' : high.map((v
 ${medium.length === 0 ? '✅ No medium severity vulnerabilities found' : medium.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
-**Type:** ${v.type}
+**Type:** ${v.type || 'MISCELLANEOUS'}
 **Description:** ${v.description}
 **Recommendation:** ${v.recommendation}
 `).join('\n')}
@@ -84,7 +84,7 @@ ${medium.length === 0 ? '✅ No medium severity vulnerabilities found' : medium.
 ${low.length === 0 ? '✅ No low severity vulnerabilities found' : low.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
-**Type:** ${v.type}
+**Type:** ${v.type || 'MISCELLANEOUS'}
 **Description:** ${v.description}
 **Recommendation:** ${v.recommendation}
 `).join('\n')}
@@ -134,7 +134,10 @@ ${scan.headersCheck ? `
 ${scan.headersCheck.missingHeaders && Array.isArray(scan.headersCheck.missingHeaders) && scan.headersCheck.missingHeaders.length > 0 ? scan.headersCheck.missingHeaders.map((h: string) => `- ${h}`).join('\n') : '✅ All headers configured'}
 
 **Detected Issues:**
-${scan.headersCheck.issues && Array.isArray(scan.headersCheck.issues) && scan.headersCheck.issues.length > 0 ? scan.headersCheck.issues.map((issue: string) => `- ${issue}`).join('\n') : '✅ No issues found'}
+${scan.headersCheck.issues && Array.isArray(scan.headersCheck.issues) && scan.headersCheck.issues.length > 0 ? scan.headersCheck.issues.map((issue: any) => {
+  if (typeof issue === 'string') return `- ${issue}`
+  else return `- ${issue.title || issue.description || JSON.stringify(issue)}`
+}).join('\n') : '✅ No issues found'}
 ` : '❌ Security headers check not performed'}
 
 ---
@@ -223,7 +226,7 @@ ${(() => {
 
   return enrichedPrompts.length > 0 ? enrichedPrompts.map((prompt, i) => `
 ### ${prompt.id}: ${prompt.title}
-**Type:** ${prompt.type} | **Severity:** ${prompt.severity} | **Action:** ${prompt.actionRequired}
+**Type:** ${prompt.type || 'MISCELLANEOUS'} | **Severity:** ${prompt.severity} | **Action:** ${prompt.actionRequired}
 **Likely Locations:** ${prompt.likelyLocations}
 
 **Description:** ${prompt.description}
@@ -334,9 +337,9 @@ export async function POST(request: NextRequest) {
     console.error('💥 Report generation error:', error)
     console.error('🔍 Error stack:', error.stack)
     console.error('🔍 Error details:', {
-      name: error.name,
-      message: error.message,
-      code: error.code,
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      code: error instanceof Error && 'code' in error ? (error as any).code : undefined,
     })
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
