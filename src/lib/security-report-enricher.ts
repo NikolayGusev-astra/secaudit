@@ -824,7 +824,7 @@ export class SecurityReportEnricher {
         // Count occurrences of each pattern
         const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
         const matches = reportText.match(regex);
-        if (matches) {
+        if (matches && matches.length > 0) {
           score += matches.length * weight;
         }
       });
@@ -849,8 +849,17 @@ export class SecurityReportEnricher {
     const reportText = JSON.stringify(this.report).toLowerCase();
     let confidenceScore = 0;
 
-    Object.values(TECH_STACKS_MATRIX).forEach(config => {
-      config.patterns?.forEach(pattern => {
+    // Use the same patterns from autoDetectStack for confidence calculation
+    const allStackPatterns = [
+      ...['nextjs-vercel'].map(s => ({ stack: s, patterns: ['next.js', 'vercel', 'react', 'next.config.js', 'middleware.ts', 'app router'] })),
+      ...['python-django'].map(s => ({ stack: s, patterns: ['python', 'django', 'flask', 'jinja', 'settings.py', 'wsgi'] })),
+      ...['php-laravel'].map(s => ({ stack: s, patterns: ['php', 'laravel', 'apache', 'composer', 'blade', '.htaccess'] })),
+      ...['java-spring'].map(s => ({ stack: s, patterns: ['java', 'spring', 'tomcat', 'jsp', 'thymeleaf', 'websecurityconfig'] })),
+      ...['static-nginx'].map(s => ({ stack: s, patterns: ['nginx', 'static html', 'apache', 'html', 'javascript:', 'onclick='] })),
+    ];
+
+    allStackPatterns.forEach(({ patterns }) => {
+      patterns.forEach(pattern => {
         if (reportText.includes(pattern.toLowerCase())) {
           confidenceScore += 2;
         }
@@ -918,13 +927,14 @@ export class SecurityReportEnricher {
   } {
     // Find matching category
     for (const [category, config] of Object.entries(CONTEXT_MAP)) {
-      if (config.patterns.some(pattern =>
-        vuln.type.toLowerCase().includes(pattern.toLowerCase()) ||
-        vuln.title.toLowerCase().includes(pattern.toLowerCase()) ||
-        vuln.description.toLowerCase().includes(pattern.toLowerCase())
+      const patterns = (config as any).patterns;
+      if (patterns && patterns.some((pattern: string) =>
+        (vuln.type && vuln.type.toLowerCase().includes(pattern.toLowerCase())) ||
+        (vuln.title && vuln.title.toLowerCase().includes(pattern.toLowerCase())) ||
+        (vuln.description && vuln.description.toLowerCase().includes(pattern.toLowerCase()))
       )) {
-        // Use the getContextForStack method with the selected tech stack
-        return config.getContextForStack(this.techStack, vuln.title);
+        // Use the getContextForStack method with selected tech stack
+        return (config as any).getContextForStack(this.techStack, vuln.title);
       }
     }
 
@@ -933,7 +943,7 @@ export class SecurityReportEnricher {
     return {
       actionType: 'CONFIG_CHANGE',
       locations: stackConfig?.configFiles || 'Check configuration files',
-      context: `Review the vulnerability details and determine appropriate configuration changes for ${stackConfig?.name || 'your tech stack'}.`
+      context: `Review vulnerability details and determine appropriate configuration changes for ${stackConfig?.name || 'your tech stack'}.`
     };
   }
 
