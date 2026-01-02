@@ -270,6 +270,9 @@ async function checkDNS(domain: string) {
         }
         dnsIssues.push(offlineIssue as any)
       }
+      // Add bonus score if MX records don't exist (email not used)
+      // Email security is N/A, not a vulnerability
+      score += 10
     }
 
     if (dnsCheck.dnsRecords.mxRecords.length > 0) score += 15
