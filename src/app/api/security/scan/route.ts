@@ -896,7 +896,7 @@ async function checkSensitiveFiles(baseUrl: string, domain: string) {
 async function scanVulnerabilities(url: string, domain: string) {
   const vulnerabilities: any[] = []
 
-  // Skip vulnerability checks for major protected sites
+  // Skip vulnerability checks for major protected sites (but allow scanning our own site)
   const isProtectedSite = domain && typeof domain === 'string' && (
                          domain.includes('x.com') ||
                          domain.includes('twitter.com') ||
@@ -904,7 +904,6 @@ async function scanVulnerabilities(url: string, domain: string) {
                          domain.includes('google.com') ||
                          domain.includes('github.com') ||
                          domain.includes('cloudflare.com') ||
-                         domain.includes('vercel.app') ||
                          domain.includes('microsoft.com') ||
                          domain.includes('apple.com') ||
                          domain.includes('amazon.com') ||
@@ -1364,14 +1363,13 @@ export async function GET(request: NextRequest) {
       scores.reduce((a, b) => a + b, 0) / scores.length
     )
 
-    // Check if this is a protected site
+    // Check if this is a protected site (but allow scanning our own secaudit-pi.vercel.app)
     const isProtectedSite = parsedUrl.domain.includes('x.com') ||
                            parsedUrl.domain.includes('twitter.com') ||
                            parsedUrl.domain.includes('facebook.com') ||
                            parsedUrl.domain.includes('google.com') ||
                            parsedUrl.domain.includes('github.com') ||
                            parsedUrl.domain.includes('cloudflare.com') ||
-                           parsedUrl.domain.includes('vercel.app') ||
                            parsedUrl.domain.includes('microsoft.com') ||
                            parsedUrl.domain.includes('apple.com') ||
                            parsedUrl.domain.includes('amazon.com') ||
