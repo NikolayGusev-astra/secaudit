@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Shield, AlertTriangle, CheckCircle, XCircle, Clock, Server, Globe, Lock, Zap, Eye, Bug, Mail, Key, Download, FileText, Database } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { InfoBanner } from './info-banner'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -310,7 +309,7 @@ ${v.recommendation}
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       startScan()
     }
@@ -333,8 +332,6 @@ ${v.recommendation}
           </p>
         </div>
 
-        {/* Info Banner */}
-        <InfoBanner showInfo={showInfo} setShowInfo={setShowInfo} />
 
         {/* Scan Input */}
         <Card className="mb-8 shadow-xl border-2">
