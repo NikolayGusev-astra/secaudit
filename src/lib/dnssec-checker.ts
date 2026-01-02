@@ -435,39 +435,43 @@ function analyzeDNSConfiguration(result: DNSRecordsCheckResult) {
     });
   }
 
-  // Check for SPF record
-  const hasSPF = result.txtRecords.some(txt =>
-    typeof txt === 'string' && txt.toLowerCase().startsWith('v=spf1')
-  );
+  // Only check email security records (SPF, DMARC) if MX records exist
+  // These are only relevant for email-enabled domains
+  if (result.mxRecords.length > 0) {
+    // Check for SPF record
+    const hasSPF = result.txtRecords.some(txt =>
+      typeof txt === 'string' && txt.toLowerCase().startsWith('v=spf1')
+    );
 
-  if (!hasSPF) {
-    result.issues.push({
-      type: 'MISSING_RECORD',
-      severity: 'MEDIUM' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO',
-      title: 'Missing SPF Record',
-      description: 'No SPF (Sender Policy Framework) record found in DNS.',
-      recommendation: 'Add SPF record to prevent email spoofing. Example: "v=spf1 include:_spf.google.com ~all"',
-      recordType: 'TXT',
-    });
-  }
+    if (!hasSPF) {
+      result.issues.push({
+        type: 'MISSING_RECORD',
+        severity: 'MEDIUM' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO',
+        title: 'Missing SPF Record',
+        description: 'No SPF (Sender Policy Framework) record found in DNS.',
+        recommendation: 'Add SPF record to prevent email spoofing. Example: "v=spf1 include:_spf.google.com ~all"',
+        recordType: 'TXT',
+      });
+    }
 
-  // Check for DMARC record
-  const hasDMARC = result.txtRecords.some(txt =>
-    typeof txt === 'string' && (
-      txt.toLowerCase().includes('v=dmarc1') ||
-      txt.toLowerCase().includes('v=dmarc')
-    )
-  );
+    // Check for DMARC record
+    const hasDMARC = result.txtRecords.some(txt =>
+      typeof txt === 'string' && (
+        txt.toLowerCase().includes('v=dmarc1') ||
+        txt.toLowerCase().includes('v=dmarc')
+      )
+    );
 
-  if (!hasDMARC) {
-    result.issues.push({
-      type: 'MISSING_RECORD',
-      severity: 'MEDIUM' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO',
-      title: 'Missing DMARC Record',
-      description: 'No DMARC (Domain-based Message Authentication, Reporting, and Conformance) record found.',
-      recommendation: 'Add DMARC record for email authentication. Example: "v=DMARC1; p=none; rua=mailto:dmarc@example.com"',
-      recordType: 'TXT',
-    });
+    if (!hasDMARC) {
+      result.issues.push({
+        type: 'MISSING_RECORD',
+        severity: 'MEDIUM' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO',
+        title: 'Missing DMARC Record',
+        description: 'No DMARC (Domain-based Message Authentication, Reporting, and Conformance) record found.',
+        recommendation: 'Add DMARC record for email authentication. Example: "v=DMARC1; p=none; rua=mailto:dmarc@example.com"',
+        recordType: 'TXT',
+      });
+    }
   }
 }
 
@@ -497,20 +501,23 @@ export function generateDNSSecurityScore(result: FullDNSCheckResult): number {
     score -= 10;
   }
 
-  // SPF missing
-  const hasSPF = result.dnsRecords.issues.some(
-    (issue: DNSIssue) => issue.title === 'Missing SPF Record'
-  );
-  if (hasSPF) {
-    score -= 10;
-  }
+  // SPF and DMARC only matter if MX records exist (email domain)
+  if (result.dnsRecords.mxRecords.length > 0) {
+    // SPF missing
+    const hasSPF = result.dnsRecords.issues.some(
+      (issue: DNSIssue) => issue.title === 'Missing SPF Record'
+    );
+    if (hasSPF) {
+      score -= 10;
+    }
 
-  // DMARC missing
-  const hasDMARC = result.dnsRecords.issues.some(
-    (issue: DNSIssue) => issue.title === 'Missing DMARC Record'
-  );
-  if (hasDMARC) {
-    score -= 10;
+    // DMARC missing
+    const hasDMARC = result.dnsRecords.issues.some(
+      (issue: DNSIssue) => issue.title === 'Missing DMARC Record'
+    );
+    if (hasDMARC) {
+      score -= 10;
+    }
   }
 
   // DNS errors

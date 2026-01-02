@@ -27,6 +27,12 @@ export const metadata: Metadata = {
     url: "https://secaudit-pi.vercel.app",
     siteName: "Security Audit for VibeCoders",
     type: "website",
+    images: [{
+      url: "https://secaudit-pi.vercel.app/logo.svg",
+      width: 512,
+      height: 512,
+      alt: "Security Audit Logo"
+    }]
   },
   twitter: {
     card: "summary_large_image",
@@ -34,12 +40,12 @@ export const metadata: Metadata = {
     description: "Professional-grade security and performance scanner. Analyze your website for vulnerabilities, security misconfigurations, and performance issues.",
   },
   other: {
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: blob:; connect-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;",
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
     "X-XSS-Protection": "1; mode=block",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   },
 };
 
