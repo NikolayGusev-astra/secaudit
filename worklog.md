@@ -228,3 +228,59 @@ Updated all .clinerules/ instructions to reflect the actual project state:
 2. 6188561 - Update .clinerules/ instructions for Security Audit Tool (no DB, Next.js 15, React 19, shadcn/ui)
 
 **Changes pushed to origin/main.**
+
+---
+Task ID: 5
+Agent: Cline
+Task: Add i18n (ru/en), neon cyberpunk design and expanded recommendations
+
+Work Log:
+- Created comprehensive i18n system (src/lib/i18n.ts) with full ru/en translations
+- Created Language Context (src/lib/language-context.tsx) for language switching
+- Updated layout.tsx with LanguageProvider wrapper
+- Updated design to neon cyberpunk theme with:
+  - Neon gradients (cyan, magenta, purple)
+  - Glow effects on cards and buttons
+  - Animated scan results
+  - Dark cyberpunk aesthetic
+  - Neon accent colors throughout UI
+- Added language switcher (RU/EN) in header
+- Replaced all hardcoded texts with t.key translations
+- Expanded DNS tab content with detailed recommendations for:
+  - SPF (Sender Policy Framework) - what it is, purpose, risks, recommendation, where to configure
+  - DMARC (Domain-based Message Authentication) - what it is, purpose, risks, recommendation, where to configure
+  - DKIM (DomainKeys Identified Mail) - what it is, purpose, risks, recommendation, where to configure
+  - DNSSEC (DNS Security Extensions) - what it is, purpose, risks, recommendation, where to configure
+- Expanded Headers tab content with detailed recommendations for:
+  - Content-Security-Policy (CSP) - what it is, purpose, risks, recommendation, how to implement
+  - Strict-Transport-Security (HSTS) - what it is, purpose, risks, recommendation, how to implement
+  - X-Frame-Options - what it is, purpose, risks, recommendation, how to implement
+- Updated recommendation format to focus on "what to do" instead of "what's wrong"
+- Updated API report route with language support (ru/en)
+- Fixed duplicate i18n keys (dnsSecurity → dnsSecurityCategory, performance → perfCategory)
+
+Stage Summary:
+Implemented full i18n support with Russian and English languages, redesigned UI with neon cyberpunk aesthetic, and expanded DNS/Headers recommendations with detailed "what to do" guidance for each security feature.
+
+**Design Changes:**
+- Neon cyberpunk theme with glow effects
+- Animated gradients and hover effects
+- Dark theme with neon accents
+- Language switcher in header with flag icons
+
+**Content Expansions:**
+- DNS Security: Detailed explanations for SPF, DMARC, DKIM, DNSSEC
+- Security Headers: Detailed explanations for CSP, HSTS, X-Frame-Options
+- Each feature includes: What is it?, What is it for?, Risks, Recommendation, Where to configure
+
+**User Feedback Addressed:**
+- ✅ Overview tab content maintained
+- ✅ DNS/Headers tabs expanded with same detail level
+- ✅ Design updated to neon cyberpunk
+- ✅ Recommendations focus on "what to do"
+- ✅ Detailed explanations for DNS records and their purposes
+
+**Git commits:**
+1. 8eee896 - feat: добавить i18n (ru/en), неоновый киберпанк дизайн и расширенные рекомендации
+
+**Changes pushed to origin/main.**
