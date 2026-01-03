@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SecurityReportEnricher } from '@/lib/security-report-enricher'
+import { translations } from '@/lib/i18n'
+import type { Language } from '@/lib/i18n'
 
-function generateMarkdownReport(scan: any) {
-  const date = new Date().toLocaleDateString('ru-RU', {
+function generateMarkdownReport(scan: any, language: Language = 'en') {
+  const t = translations[language]
+  const locale = language === 'ru' ? 'ru-RU' : 'en-US'
+  const date = new Date().toLocaleDateString(locale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -16,34 +20,34 @@ function generateMarkdownReport(scan: any) {
   const low = scan.vulnerabilities?.filter((v: any) => v.severity === 'LOW') || []
   const info = scan.vulnerabilities?.filter((v: any) => v.severity === 'INFO') || []
 
-  let report = `# 🛡️ Security Audit Report
+  let report = `# 🛡️ ${t.securityResults}
 
 ---
 
-## 📋 Executive Summary
+## 📋 ${language === 'ru' ? 'Исполнительное резюме' : 'Executive Summary'}
 
-**Target URL:** ${scan.url}
-**Domain:** ${scan.domain}
-**Scan Date:** ${date}
-**Overall Score:** ${scan.overallScore}/100
-**Risk Level:** ${scan.riskLevel}
+**${t.target}:** ${scan.url}
+**${t.domain || 'Domain'}:** ${scan.domain}
+**${language === 'ru' ? 'Дата сканирования' : 'Scan Date'}:** ${date}
+**${t.securityScore}:** ${scan.overallScore}/100
+**${language === 'ru' ? 'Уровень риска' : 'Risk Level'}:** ${scan.riskLevel}
 
 ---
 
-## 📊 Security Scores by Category
+## 📊 ${language === 'ru' ? 'Оценки безопасности по категориям' : 'Security Scores by Category'}
 
-| Category | Score | Status |
+| ${language === 'ru' ? 'Категория' : 'Category'} | ${language === 'ru' ? 'Оценка' : 'Score'} | ${language === 'ru' ? 'Статус' : 'Status'} |
 |-----------|--------|--------|
-| SSL/TLS | ${scan.sslCheck?.score || 0}/100 | ${scan.sslCheck?.score >= 80 ? '✅ Good' : scan.sslCheck?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
-| Security Headers | ${scan.headersCheck?.score || 0}/100 | ${scan.headersCheck?.score >= 80 ? '✅ Good' : scan.headersCheck?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
-| DNS Security | ${scan.dnsCheck?.score || 0}/100 | ${scan.dnsCheck?.score >= 80 ? '✅ Good' : scan.dnsCheck?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
-| Performance | ${scan.performance?.score || 0}/100 | ${scan.performance?.score >= 80 ? '✅ Good' : scan.performance?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
+| ${t.sslTls} | ${scan.sslCheck?.score || 0}/100 | ${scan.sslCheck?.score >= 80 ? '✅ Good' : scan.sslCheck?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
+| ${t.securityHeaders} | ${scan.headersCheck?.score || 0}/100 | ${scan.headersCheck?.score >= 80 ? '✅ Good' : scan.headersCheck?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
+| ${t.dnsSecurityCategory} | ${scan.dnsCheck?.score || 0}/100 | ${scan.dnsCheck?.score >= 80 ? '✅ Good' : scan.dnsCheck?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
+| ${t.perfCategory} | ${scan.performance?.score || 0}/100 | ${scan.performance?.score >= 80 ? '✅ Good' : scan.performance?.score >= 60 ? '⚠️ Fair' : '❌ Poor'} |
 
 ---
 
-## 🔴 Critical Vulnerabilities (${critical.length})
+## 🔴 ${language === 'ru' ? 'Критические уязвимости' : 'Critical Vulnerabilities'} (${critical.length})
 
-${critical.length === 0 ? '✅ No critical vulnerabilities found' : critical.map((v: any, i: number) => `
+${critical.length === 0 ? '✅ ' + (language === 'ru' ? 'Критические уязвимости не найдены' : 'No critical vulnerabilities found') : critical.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
 **Type:** ${v.type || 'MISCELLANEOUS'}
@@ -54,9 +58,9 @@ ${critical.length === 0 ? '✅ No critical vulnerabilities found' : critical.map
 
 ---
 
-## 🟠 High Severity Vulnerabilities (${high.length})
+## 🟠 ${language === 'ru' ? 'Уязвимости высокой степени' : 'High Severity Vulnerabilities'} (${high.length})
 
-${high.length === 0 ? '✅ No high severity vulnerabilities found' : high.map((v: any, i: number) => `
+${high.length === 0 ? '✅ ' + (language === 'ru' ? 'Уязвимости высокой степени не найдены' : 'No high severity vulnerabilities found') : high.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
 **Type:** ${v.type || 'MISCELLANEOUS'}
@@ -67,9 +71,9 @@ ${high.length === 0 ? '✅ No high severity vulnerabilities found' : high.map((v
 
 ---
 
-## 🟡 Medium Severity Vulnerabilities (${medium.length})
+## 🟡 ${language === 'ru' ? 'Уязвимости средней степени' : 'Medium Severity Vulnerabilities'} (${medium.length})
 
-${medium.length === 0 ? '✅ No medium severity vulnerabilities found' : medium.map((v: any, i: number) => `
+${medium.length === 0 ? '✅ ' + (language === 'ru' ? 'Уязвимости средней степени не найдены' : 'No medium severity vulnerabilities found') : medium.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
 **Type:** ${v.type || 'MISCELLANEOUS'}
@@ -79,9 +83,9 @@ ${medium.length === 0 ? '✅ No medium severity vulnerabilities found' : medium.
 
 ---
 
-## 🟢 Low Severity Vulnerabilities (${low.length})
+## 🟢 ${language === 'ru' ? 'Уязвимости низкой степени' : 'Low Severity Vulnerabilities'} (${low.length})
 
-${low.length === 0 ? '✅ No low severity vulnerabilities found' : low.map((v: any, i: number) => `
+${low.length === 0 ? '✅ ' + (language === 'ru' ? 'Уязвимости низкой степени не найдены' : 'No low severity vulnerabilities found') : low.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 
 **Type:** ${v.type || 'MISCELLANEOUS'}
@@ -91,33 +95,33 @@ ${low.length === 0 ? '✅ No low severity vulnerabilities found' : low.map((v: a
 
 ---
 
-## ℹ️ Informational Messages (${info.length})
+## ℹ️ ${language === 'ru' ? 'Информационные сообщения' : 'Informational Messages'} (${info.length})
 
-${info.length === 0 ? '✅ No informational messages' : info.map((v: any, i: number) => `
+${info.length === 0 ? '✅ ' + (language === 'ru' ? 'Информационные сообщения отсутствуют' : 'No informational messages') : info.map((v: any, i: number) => `
 ### ${i + 1}. ${v.title}
 **Description:** ${v.description}
 `).join('\n')}
 
 ---
 
-## 🔒 SSL/TLS Analysis
+## 🔒 ${language === 'ru' ? 'Анализ SSL/TLS' : 'SSL/TLS Analysis'}
 
 ${scan.sslCheck ? `
-| Parameter | Value | Status |
+| ${language === 'ru' ? 'Параметр' : 'Parameter'} | ${language === 'ru' ? 'Значение' : 'Value'} | ${language === 'ru' ? 'Статус' : 'Status'} |
 |-----------|-------|--------|
-| SSL Certificate | ${scan.sslCheck.hasCertificate ? '✅ Present' : '❌ Absent'} | ${scan.sslCheck.hasCertificate ? 'OK' : 'CRITICAL'} |
-| Valid | ${scan.sslCheck.isValid ? '✅ Valid' : '❌ Invalid'} | ${scan.sslCheck.isValid ? 'OK' : 'CRITICAL'} |
-| TLS Version | ${scan.sslCheck.tlsVersion || 'N/A'} | ${['TLS 1.2', 'TLS 1.3'].includes(scan.sslCheck.tlsVersion || '') ? 'OK' : 'WARNING'} |
+| ${t.certificatePresent} | ${scan.sslCheck.hasCertificate ? '✅ ' + t.yes : '❌ ' + t.no} | ${scan.sslCheck.hasCertificate ? 'OK' : 'CRITICAL'} |
+| ${t.certificateValid} | ${scan.sslCheck.isValid ? '✅ ' + t.yes : '❌ ' + t.no} | ${scan.sslCheck.isValid ? 'OK' : 'CRITICAL'} |
+| ${t.tlsVersion} | ${scan.sslCheck.tlsVersion || 'N/A'} | ${['TLS 1.2', 'TLS 1.3'].includes(scan.sslCheck.tlsVersion || '') ? 'OK' : 'WARNING'} |
 | Self-Signed | ${scan.sslCheck.isSelfSigned ? '❌ Yes' : '✅ No'} | ${scan.sslCheck.isSelfSigned ? 'WARNING' : 'OK'} |
 | Expired | ${scan.sslCheck.isExpired ? '❌ Yes' : '✅ No'} | ${scan.sslCheck.isExpired ? 'CRITICAL' : 'OK'} |
 
-**Issues:**
-${scan.sslCheck.issues && Array.isArray(scan.sslCheck.issues) && scan.sslCheck.issues.length > 0 ? scan.sslCheck.issues.map((issue: string) => `- ${issue}`).join('\n') : '✅ No issues found'}
-` : '❌ SSL check not performed'}
+**${language === 'ru' ? 'Проблемы' : 'Issues'}:**
+${scan.sslCheck.issues && Array.isArray(scan.sslCheck.issues) && scan.sslCheck.issues.length > 0 ? scan.sslCheck.issues.map((issue: string) => `- ${issue}`).join('\n') : '✅ ' + (language === 'ru' ? 'Проблемы не найдены' : 'No issues found')}
+` : '❌ ' + (language === 'ru' ? 'Проверка SSL не выполнена' : 'SSL check not performed')}
 
 ---
 
-## 📋 Security Headers Analysis
+## 📋 ${language === 'ru' ? 'Анализ Security Headers' : 'Security Headers Analysis'}
 
 ${scan.headersCheck ? `
 | Header | Status |
@@ -130,22 +134,22 @@ ${scan.headersCheck ? `
 | Referrer-Policy | ${scan.headersCheck.hasReferrerPolicy ? '✅' : '❌'} |
 | Permissions-Policy | ${scan.headersCheck.hasPermissionsPolicy ? '✅' : '❌'} |
 
-**Missing Headers:**
-${scan.headersCheck.missingHeaders && Array.isArray(scan.headersCheck.missingHeaders) && scan.headersCheck.missingHeaders.length > 0 ? scan.headersCheck.missingHeaders.map((h: string) => `- ${h}`).join('\n') : '✅ All headers configured'}
+**${t.missingHeaders}:**
+${scan.headersCheck.missingHeaders && Array.isArray(scan.headersCheck.missingHeaders) && scan.headersCheck.missingHeaders.length > 0 ? scan.headersCheck.missingHeaders.map((h: string) => `- ${h}`).join('\n') : '✅ ' + (language === 'ru' ? 'Все заголовки настроены' : 'All headers configured')}
 
-**Detected Issues:**
+**${language === 'ru' ? 'Обнаруженные проблемы' : 'Detected Issues'}:**
 ${scan.headersCheck.issues && Array.isArray(scan.headersCheck.issues) && scan.headersCheck.issues.length > 0 ? scan.headersCheck.issues.map((issue: any) => {
   if (typeof issue === 'string') return `- ${issue}`
   else return `- ${issue.title || issue.description || JSON.stringify(issue)}`
-}).join('\n') : '✅ No issues found'}
-` : '❌ Security headers check not performed'}
+}).join('\n') : '✅ ' + (language === 'ru' ? 'Проблемы не найдены' : 'No issues found')}
+` : '❌ ' + (language === 'ru' ? 'Проверка заголовков безопасности не выполнена' : 'Security headers check not performed')}
 
 ---
 
-## 🌐 DNS Security Analysis
+## 🌐 ${language === 'ru' ? 'Анализ DNS безопасности' : 'DNS Security Analysis'}
 
 ${scan.dnsCheck ? `
-| Parameter | Status |
+| ${language === 'ru' ? 'Параметр' : 'Parameter'} | ${language === 'ru' ? 'Статус' : 'Status'} |
 |-----------|--------|
 | SPF Record | ${scan.dnsCheck.hasSPF ? '✅' : '❌'} |
 | DMARC | ${scan.dnsCheck.hasDMARC ? '✅' : '❌'} |
@@ -158,16 +162,16 @@ ${scan.dnsCheck.hasDMARC ? `
 - Valid: ${scan.dnsCheck.dmarcValid ? '✅ Valid' : '❌ Invalid'}
 ` : '❌ DMARC not configured'}
 
-**Issues:**
-${scan.dnsCheck.issues && Array.isArray(scan.dnsCheck.issues) && scan.dnsCheck.issues.length > 0 ? scan.dnsCheck.issues.map((issue: string) => `- ${issue}`).join('\n') : '✅ No issues found'}
-` : '❌ DNS check not performed'}
+**${language === 'ru' ? 'Проблемы' : 'Issues'}:**
+${scan.dnsCheck.issues && Array.isArray(scan.dnsCheck.issues) && scan.dnsCheck.issues.length > 0 ? scan.dnsCheck.issues.map((issue: string) => `- ${issue}`).join('\n') : '✅ ' + (language === 'ru' ? 'Проблемы не найдены' : 'No issues found')}
+` : '❌ ' + (language === 'ru' ? 'Проверка DNS не выполнена' : 'DNS check not performed')}
 
 ---
 
-## ⚡ Performance Analysis
+## ⚡ ${language === 'ru' ? 'Анализ производительности' : 'Performance Analysis'}
 
 ${scan.performance ? `
-| Metric | Value | Status |
+| ${language === 'ru' ? 'Метрика' : 'Metric'} | ${language === 'ru' ? 'Значение' : 'Value'} | ${language === 'ru' ? 'Статус' : 'Status'} |
 |--------|-------|--------|
 | HTTP Status | ${scan.performance.statusCode} | ${scan.performance.statusCode === 200 ? 'OK' : 'WARNING'} |
 | Response Time | ${scan.performance.responseTime}ms | ${scan.performance.responseTime < 500 ? 'OK' : scan.performance.responseTime < 1000 ? 'WARNING' : 'CRITICAL'} |
@@ -178,19 +182,19 @@ ${scan.performance ? `
 | Cache-Control | ${scan.performance.hasCacheControl ? '✅' : '❌'} | ${scan.performance.hasCacheControl ? 'OK' : 'WARNING'} |
 | ETag | ${scan.performance.hasETag ? '✅' : '❌'} | ${scan.performance.hasETag ? 'OK' : 'WARNING'} |
 
-**Performance Recommendations:**
-${scan.performance.recommendations && Array.isArray(scan.performance.recommendations) && scan.performance.recommendations.length > 0 ? scan.performance.recommendations.map((rec: string) => `- ${rec}`).join('\n') : '✅ No recommendations'}
-` : '❌ Performance check not performed'}
+**${language === 'ru' ? 'Рекомендации по производительности' : 'Performance Recommendations'}:**
+${scan.performance.recommendations && Array.isArray(scan.performance.recommendations) && scan.performance.recommendations.length > 0 ? scan.performance.recommendations.map((rec: string) => `- ${rec}`).join('\n') : '✅ ' + (language === 'ru' ? 'Рекомендаций нет' : 'No recommendations')}
+` : '❌ ' + (language === 'ru' ? 'Проверка производительности не выполнена' : 'Performance check not performed')}
 
 ---
 
-## 🌐 Open Ports Analysis
+## 🌐 ${language === 'ru' ? 'Анализ открытых портов' : 'Open Ports Analysis'}
 
 ${scan.portScans && scan.portScans.length > 0 ? `
-| Port | Protocol | Service | State | Risk |
+| ${language === 'ru' ? 'Порт' : 'Port'} | ${language === 'ru' ? 'Протокол' : 'Protocol'} | ${language === 'ru' ? 'Сервис' : 'Service'} | ${language === 'ru' ? 'Состояние' : 'State'} | ${language === 'ru' ? 'Риск' : 'Risk'} |
 |------|----------|---------|--------|------|
 ${scan.portScans.map((port: any) => `| ${port.port} | ${port.protocol} | ${port.service} | ${port.state} | ${port.risk} |`).join('\n')}
-` : '❌ Port scan not performed'}
+` : '❌ ' + (language === 'ru' ? 'Сканирование портов не выполнено' : 'Port scan not performed')}
 
 ---
 
@@ -247,33 +251,33 @@ ${prompt.fullPrompt}
 
 ---
 
-## 📝 Next Steps & Recommendations
+## 📝 ${language === 'ru' ? 'Следующие шаги и рекомендации' : 'Next Steps & Recommendations'}
 
-### Immediate Actions (CRITICAL):
-${critical.length > 0 ? critical.map((v: any) => `- Fix: ${v.title}`).join('\n') : '- No critical vulnerabilities'}
+### ${language === 'ru' ? 'Немедленные действия (КРИТИЧЕСКИЕ)' : 'Immediate Actions (CRITICAL)'}:
+${critical.length > 0 ? critical.map((v: any) => `- Fix: ${v.title}`).join('\n') : '- ' + (language === 'ru' ? 'Нет критических уязвимостей' : 'No critical vulnerabilities')}
 
-### Priority Actions (HIGH):
-${high.length > 0 ? high.map((v: any) => `- Fix: ${v.title}`).join('\n') : '- No high severity vulnerabilities'}
+### ${language === 'ru' ? 'Приоритетные действия (ВЫСОКИЕ)' : 'Priority Actions (HIGH)'}:
+${high.length > 0 ? high.map((v: any) => `- Fix: ${v.title}`).join('\n') : '- ' + (language === 'ru' ? 'Нет уязвимостей высокой степени' : 'No high severity vulnerabilities')}
 
-### Planned Actions (MEDIUM/LOW):
-${[...medium, ...low].length > 0 ? [...medium, ...low].map((v: any) => `- Fix: ${v.title}`).join('\n') : '- No medium or low severity vulnerabilities'}
+### ${language === 'ru' ? 'Планируемые действия (СРЕДНИЕ/НИЗКИЕ)' : 'Planned Actions (MEDIUM/LOW)'}:
+${[...medium, ...low].length > 0 ? [...medium, ...low].map((v: any) => `- Fix: ${v.title}`).join('\n') : '- ' + (language === 'ru' ? 'Нет уязвимостей средней или низкой степени' : 'No medium or low severity vulnerabilities')}
 
-### Monitoring:
-- Regularly scan website (monthly)
-- Monitor dependency updates
-- Subscribe to security bulletins
-- Set up automated notifications
+### ${language === 'ru' ? 'Мониторинг' : 'Monitoring'}:
+- ${language === 'ru' ? 'Регулярно сканировать сайт (ежемесячно)' : 'Regularly scan website (monthly)'}
+- ${language === 'ru' ? 'Мониторить обновления зависимостей' : 'Monitor dependency updates'}
+- ${language === 'ru' ? 'Подписаться на бюллетени безопасности' : 'Subscribe to security bulletins'}
+- ${language === 'ru' ? 'Настроить автоматические уведомления' : 'Set up automated notifications'}
 
-### Training:
-- Study OWASP Top 10
-- Practice on test websites
-- Read security blogs and research
+### ${language === 'ru' ? 'Обучение' : 'Training'}:
+- ${language === 'ru' ? 'Изучить OWASP Top 10' : 'Study OWASP Top 10'}
+- ${language === 'ru' ? 'Практиковаться на тестовых сайтах' : 'Practice on test websites'}
+- ${language === 'ru' ? 'Читать блоги и исследования по безопасности' : 'Read security blogs and research'}
 
 ---
 
-## 📞 Support & Contact
+## 📞 ${language === 'ru' ? 'Поддержка и контакт' : 'Support & Contact'}
 
-If you have questions about this report or need help fixing vulnerabilities:
+${language === 'ru' ? 'Если у вас есть вопросы по этому отчету или нужна помощь в исправлении уязвимостей:' : 'If you have questions about this report or need help fixing vulnerabilities:'}
 
 - 📧 Email: security@example.com
 - 💬 Discord: #security-help
@@ -282,7 +286,7 @@ If you have questions about this report or need help fixing vulnerabilities:
 
 ---
 
-*Report generated automatically by Security Audit Pro*
+*${language === 'ru' ? 'Отчет автоматически сгенерирован Security Audit Pro' : 'Report generated automatically by Security Audit Pro'}*
 *${date}*
 `
 
@@ -295,8 +299,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const scanData = await request.json()
-
+    const language: Language = scanData.language || 'en'
     console.log('📋 Received scan data for report generation')
+    console.log('🌐 Language:', language)
     console.log('📊 Scan data summary:', {
       id: scanData.id,
       url: scanData.url,
@@ -320,7 +325,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('📝 Generating markdown report...')
-    const markdown = generateMarkdownReport(scanData)
+    const markdown = generateMarkdownReport(scanData, language)
     const filename = `security-report-${scanData.domain}-${new Date().toISOString().split('T')[0]}.md`
 
     console.log('✅ Report generated successfully')
