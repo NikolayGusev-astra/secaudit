@@ -230,6 +230,27 @@ Updated all .clinerules/ instructions to reflect the actual project state:
 **Changes pushed to origin/main.**
 
 ---
+Task ID: 6
+Agent: Cline
+Task: Fix layout.tsx and remove Prisma from build
+
+Work Log:
+- Fixed layout.tsx by removing 'use client' directive (caused Next.js error)
+- Added React import to layout.tsx
+- Removed Prisma generate from build script in package.json (no database used)
+- Committed and pushed fixes to origin/main
+
+Stage Summary:
+Fixed critical build issues:
+- Removed 'use client' from layout.tsx (layouts are server components by default in Next.js 15)
+- Removed Prisma dependency from build process (API returns results in real-time without database)
+
+**Git commits:**
+1. 4eeb73b - fix: убрать use client из layout, убрать Prisma из build
+
+**Changes pushed to origin/main.**
+
+---
 Task ID: 5
 Agent: Cline
 Task: Add i18n (ru/en), neon cyberpunk design and expanded recommendations
