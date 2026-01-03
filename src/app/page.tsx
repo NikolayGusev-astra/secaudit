@@ -729,136 +729,156 @@ ${v.recommendation}
                         </div>
                       )}
 
-                      {/* Detailed Recommendations for Missing Headers */}
-                      <div className="mt-6 space-y-4">
-                        <h3 className="text-lg font-semibold text-purple-300 mb-4 flex items-center gap-2">
-                          <Info className="h-5 w-5" />
-                          {language === 'ru' ? 'Детальные рекомендации по заголовкам безопасности' : 'Detailed Security Header Recommendations'}
-                        </h3>
+                      {/* Detailed Recommendations - Only show for missing headers */}
+                      {(!scanResult.headersCheck.hasCSP || !scanResult.headersCheck.hasHSTS || !scanResult.headersCheck.hasXFrameOptions) && (
+                        <div className="mt-6 space-y-4">
+                          <h3 className="text-lg font-semibold text-purple-300 mb-4 flex items-center gap-2">
+                            <Info className="h-5 w-5" />
+                            {language === 'ru' ? 'Детальные рекомендации по заголовкам безопасности' : 'Detailed Security Header Recommendations'}
+                          </h3>
 
-                        {/* CSP */}
-                        <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
-                          <CardContent className="pt-6 space-y-4">
-                            <h4 className="text-cyan-400 font-semibold text-lg mb-2">{t.cspTitle}</h4>
-                            
-                            <div className="space-y-3">
-                              <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
-                                <p className="text-sm text-gray-400">{t.cspDesc}</p>
-                              </div>
+                          {/* CSP - Show only if missing */}
+                          {!scanResult.headersCheck.hasCSP && (
+                            <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
+                              <CardContent className="pt-6 space-y-4">
+                                <h4 className="text-cyan-400 font-semibold text-lg mb-2">{t.cspTitle}</h4>
+                                
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
+                                    <p className="text-sm text-gray-400">{t.cspDesc}</p>
+                                  </div>
 
-                              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
-                                <p className="text-sm text-green-200">{t.cspPurpose}</p>
-                              </div>
+                                  <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
+                                    <p className="text-sm text-green-200">{t.cspPurpose}</p>
+                                  </div>
 
-                              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
-                                <p className="text-sm text-red-200">{t.cspRisks}</p>
-                              </div>
+                                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
+                                    <p className="text-sm text-red-200">{t.cspRisks}</p>
+                                  </div>
 
-                              <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
-                                <p className="text-sm text-cyan-200">{t.cspRecommendation}</p>
-                              </div>
+                                  <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
+                                    <p className="text-sm text-cyan-200">{t.cspRecommendation}</p>
+                                  </div>
 
-                              <div className="p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-purple-300 mb-1">{t.codeExample}</p>
-                                <pre className="bg-gray-950 p-3 rounded overflow-x-auto mt-2">
-                                  <code className="text-sm text-green-400">{t.cspCode}</code>
-                                </pre>
-                              </div>
+                                  <div className="p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-purple-300 mb-1">{t.codeExample}</p>
+                                    <pre className="bg-gray-950 p-3 rounded overflow-x-auto mt-2">
+                                      <code className="text-sm text-green-400">{t.cspCode}</code>
+                                    </pre>
+                                  </div>
 
-                              <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
-                                <p className="text-sm text-gray-400">{t.cspHowTo}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                                  <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
+                                    <p className="text-sm text-gray-400">{t.cspHowTo}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
 
-                        {/* HSTS */}
-                        <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
-                          <CardContent className="pt-6 space-y-4">
-                            <h4 className="text-cyan-400 font-semibold text-lg mb-2">{t.hstsTitle}</h4>
-                            
-                            <div className="space-y-3">
-                              <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
-                                <p className="text-sm text-gray-400">{t.hstsDesc}</p>
-                              </div>
+                          {/* HSTS - Show only if missing */}
+                          {!scanResult.headersCheck.hasHSTS && (
+                            <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
+                              <CardContent className="pt-6 space-y-4">
+                                <h4 className="text-cyan-400 font-semibold text-lg mb-2">{t.hstsTitle}</h4>
+                                
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
+                                    <p className="text-sm text-gray-400">{t.hstsDesc}</p>
+                                  </div>
 
-                              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
-                                <p className="text-sm text-green-200">{t.hstsPurpose}</p>
-                              </div>
+                                  <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
+                                    <p className="text-sm text-green-200">{t.hstsPurpose}</p>
+                                  </div>
 
-                              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
-                                <p className="text-sm text-red-200">{t.hstsRisks}</p>
-                              </div>
+                                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
+                                    <p className="text-sm text-red-200">{t.hstsRisks}</p>
+                                  </div>
 
-                              <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
-                                <p className="text-sm text-cyan-200">{t.hstsRecommendation}</p>
-                              </div>
+                                  <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
+                                    <p className="text-sm text-cyan-200">{t.hstsRecommendation}</p>
+                                  </div>
 
-                              <div className="p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-purple-300 mb-1">{t.codeExample}</p>
-                                <pre className="bg-gray-950 p-3 rounded overflow-x-auto mt-2">
-                                  <code className="text-sm text-green-400">{t.hstsCode}</code>
-                                </pre>
-                              </div>
+                                  <div className="p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-purple-300 mb-1">{t.codeExample}</p>
+                                    <pre className="bg-gray-950 p-3 rounded overflow-x-auto mt-2">
+                                      <code className="text-sm text-green-400">{t.hstsCode}</code>
+                                    </pre>
+                                  </div>
 
-                              <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
-                                <p className="text-sm text-gray-400">{t.hstsHowTo}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                                  <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
+                                    <p className="text-sm text-gray-400">{t.hstsHowTo}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
 
-                        {/* X-Frame-Options */}
-                        <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
-                          <CardContent className="pt-6 space-y-4">
-                            <h4 className="text-cyan-400 font-semibold text-lg mb-2">{t.xFrameTitle}</h4>
-                            
-                            <div className="space-y-3">
-                              <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
-                                <p className="text-sm text-gray-400">{t.xFrameDesc}</p>
-                              </div>
+                          {/* X-Frame-Options - Show only if missing */}
+                          {!scanResult.headersCheck.hasXFrameOptions && (
+                            <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
+                              <CardContent className="pt-6 space-y-4">
+                                <h4 className="text-cyan-400 font-semibold text-lg mb-2">{t.xFrameTitle}</h4>
+                                
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
+                                    <p className="text-sm text-gray-400">{t.xFrameDesc}</p>
+                                  </div>
 
-                              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
-                                <p className="text-sm text-green-200">{t.xFramePurpose}</p>
-                              </div>
+                                  <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
+                                    <p className="text-sm text-green-200">{t.xFramePurpose}</p>
+                                  </div>
 
-                              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
-                                <p className="text-sm text-red-200">{t.xFrameRisks}</p>
-                              </div>
+                                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
+                                    <p className="text-sm text-red-200">{t.xFrameRisks}</p>
+                                  </div>
 
-                              <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
-                                <p className="text-sm text-cyan-200">{t.xFrameRecommendation}</p>
-                              </div>
+                                  <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
+                                    <p className="text-sm text-cyan-200">{t.xFrameRecommendation}</p>
+                                  </div>
 
-                              <div className="p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-purple-300 mb-1">{t.codeExample}</p>
-                                <pre className="bg-gray-950 p-3 rounded overflow-x-auto mt-2">
-                                  <code className="text-sm text-green-400">{t.xFrameCode}</code>
-                                </pre>
-                              </div>
+                                  <div className="p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-purple-300 mb-1">{t.codeExample}</p>
+                                    <pre className="bg-gray-950 p-3 rounded overflow-x-auto mt-2">
+                                      <code className="text-sm text-green-400">{t.xFrameCode}</code>
+                                    </pre>
+                                  </div>
 
-                              <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
-                                <p className="text-sm text-gray-400">{t.xFrameHowTo}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
+                                  <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
+                                    <p className="text-sm text-gray-400">{t.xFrameHowTo}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </div>
+                      )}
+
+                      {/* No Issues Message */}
+                      {scanResult.headersCheck.hasCSP && scanResult.headersCheck.hasHSTS && scanResult.headersCheck.hasXFrameOptions && (
+                        <div className="mt-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-green-400" />
+                            <p className="text-green-300 font-medium">
+                              {language === 'ru' ? 'Все проверенные заголовки безопасности настроены правильно! Рекомендации не требуются.' : 'All security headers configured correctly! No recommendations needed.'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -905,161 +925,194 @@ ${v.recommendation}
                         ))}
                       </div>
 
-                      {/* Detailed DNS Recommendations */}
-                      <div className="mt-6 space-y-4">
-                        <h3 className="text-lg font-semibold text-green-300 mb-4 flex items-center gap-2">
-                          <Info className="h-5 w-5" />
-                          {language === 'ru' ? 'Детальные рекомендации по DNS безопасности' : 'Detailed DNS Security Recommendations'}
-                        </h3>
+                      {/* Detailed DNS Recommendations - Only show if there are problems */}
+                      {(scanResult.dnsCheck.hasMXRecord && (!scanResult.dnsCheck.hasSPF || !scanResult.dnsCheck.hasDMARC || !scanResult.dnsCheck.hasDKIM) || !scanResult.dnsCheck.hasDNSSEC) && (
+                        <div className="mt-6 space-y-4">
+                          <h3 className="text-lg font-semibold text-green-300 mb-4 flex items-center gap-2">
+                            <Info className="h-5 w-5" />
+                            {language === 'ru' ? 'Детальные рекомендации по DNS безопасности' : 'Detailed DNS Security Recommendations'}
+                          </h3>
 
-                        {/* SPF */}
-                        <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
-                          <CardContent className="pt-6 space-y-4">
-                            <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
-                              <Mail className="h-5 w-5" />
-                              {t.spfTitle}
-                            </h4>
-                            
-                            <div className="space-y-3">
-                              <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
-                                <p className="text-sm text-gray-400">{t.spfDesc}</p>
-                              </div>
+                          {/* SPF - Show only if MX exists and SPF is missing */}
+                          {scanResult.dnsCheck.hasMXRecord && !scanResult.dnsCheck.hasSPF && (
+                            <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
+                              <CardContent className="pt-6 space-y-4">
+                                <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
+                                  <Mail className="h-5 w-5" />
+                                  {t.spfTitle}
+                                </h4>
+                                
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
+                                    <p className="text-sm text-gray-400">{t.spfDesc}</p>
+                                  </div>
 
-                              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
-                                <p className="text-sm text-green-200">{t.spfPurpose}</p>
-                              </div>
+                                  <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
+                                    <p className="text-sm text-green-200">{t.spfPurpose}</p>
+                                  </div>
 
-                              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
-                                <p className="text-sm text-red-200">{t.spfRisks}</p>
-                              </div>
+                                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
+                                    <p className="text-sm text-red-200">{t.spfRisks}</p>
+                                  </div>
 
-                              <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
-                                <p className="text-sm text-cyan-200">{t.spfRecommendation}</p>
-                              </div>
+                                  <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
+                                    <p className="text-sm text-cyan-200">{t.spfRecommendation}</p>
+                                  </div>
 
-                              <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
-                                <p className="text-sm text-gray-400">{t.spfWhere}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                                  <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
+                                    <p className="text-sm text-gray-400">{t.spfWhere}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
 
-                        {/* DMARC */}
-                        <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
-                          <CardContent className="pt-6 space-y-4">
-                            <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
-                              <Shield className="h-5 w-5" />
-                              {t.dmarcTitle}
-                            </h4>
-                            
-                            <div className="space-y-3">
-                              <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
-                                <p className="text-sm text-gray-400">{t.dmarcDesc}</p>
-                              </div>
+                          {/* DMARC - Show only if MX exists and DMARC is missing */}
+                          {scanResult.dnsCheck.hasMXRecord && !scanResult.dnsCheck.hasDMARC && (
+                            <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
+                              <CardContent className="pt-6 space-y-4">
+                                <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
+                                  <Shield className="h-5 w-5" />
+                                  {t.dmarcTitle}
+                                </h4>
+                                
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
+                                    <p className="text-sm text-gray-400">{t.dmarcDesc}</p>
+                                  </div>
 
-                              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
-                                <p className="text-sm text-green-200">{t.dmarcPurpose}</p>
-                              </div>
+                                  <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
+                                    <p className="text-sm text-green-200">{t.dmarcPurpose}</p>
+                                  </div>
 
-                              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
-                                <p className="text-sm text-red-200">{t.dmarcRisks}</p>
-                              </div>
+                                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
+                                    <p className="text-sm text-red-200">{t.dmarcRisks}</p>
+                                  </div>
 
-                              <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
-                                <p className="text-sm text-cyan-200">{t.dmarcRecommendation}</p>
-                              </div>
+                                  <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
+                                    <p className="text-sm text-cyan-200">{t.dmarcRecommendation}</p>
+                                  </div>
 
-                              <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
-                                <p className="text-sm text-gray-400">{t.dmarcWhere}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                                  <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
+                                    <p className="text-sm text-gray-400">{t.dmarcWhere}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
 
-                        {/* DKIM */}
-                        <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
-                          <CardContent className="pt-6 space-y-4">
-                            <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
-                              <Key className="h-5 w-5" />
-                              {t.dkimTitle}
-                            </h4>
-                            
-                            <div className="space-y-3">
-                              <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
-                                <p className="text-sm text-gray-400">{t.dkimDesc}</p>
-                              </div>
+                          {/* DKIM - Show only if MX exists and DKIM is missing */}
+                          {scanResult.dnsCheck.hasMXRecord && !scanResult.dnsCheck.hasDKIM && (
+                            <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
+                              <CardContent className="pt-6 space-y-4">
+                                <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
+                                  <Key className="h-5 w-5" />
+                                  {t.dkimTitle}
+                                </h4>
+                                
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
+                                    <p className="text-sm text-gray-400">{t.dkimDesc}</p>
+                                  </div>
 
-                              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
-                                <p className="text-sm text-green-200">{t.dkimPurpose}</p>
-                              </div>
+                                  <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
+                                    <p className="text-sm text-green-200">{t.dkimPurpose}</p>
+                                  </div>
 
-                              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
-                                <p className="text-sm text-red-200">{t.dkimRisks}</p>
-                              </div>
+                                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
+                                    <p className="text-sm text-red-200">{t.dkimRisks}</p>
+                                  </div>
 
-                              <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
-                                <p className="text-sm text-cyan-200">{t.dkimRecommendation}</p>
-                              </div>
+                                  <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
+                                    <p className="text-sm text-cyan-200">{t.dkimRecommendation}</p>
+                                  </div>
 
-                              <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
-                                <p className="text-sm text-gray-400">{t.dkimWhere}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                                  <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
+                                    <p className="text-sm text-gray-400">{t.dkimWhere}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
 
-                        {/* DNSSEC */}
-                        <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
-                          <CardContent className="pt-6 space-y-4">
-                            <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
-                              <Lock className="h-5 w-5" />
-                              {t.dnssecTitle}
-                            </h4>
-                            
-                            <div className="space-y-3">
-                              <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
-                                <p className="text-sm text-gray-400">{t.dnssecDesc}</p>
-                              </div>
+                          {/* DNSSEC - Show only if DNSSEC is missing */}
+                          {!scanResult.dnsCheck.hasDNSSEC && (
+                            <Card className="border-2 border-cyan-500/30 bg-gray-950/80">
+                              <CardContent className="pt-6 space-y-4">
+                                <h4 className="text-cyan-400 font-semibold text-lg mb-2 flex items-center gap-2">
+                                  <Lock className="h-5 w-5" />
+                                  {t.dnssecTitle}
+                                </h4>
+                                
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whatIs}</p>
+                                    <p className="text-sm text-gray-400">{t.dnssecDesc}</p>
+                                  </div>
 
-                              <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
-                                <p className="text-sm text-green-200">{t.dnssecPurpose}</p>
-                              </div>
+                                  <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-green-300 mb-1">{t.whatFor}</p>
+                                    <p className="text-sm text-green-200">{t.dnssecPurpose}</p>
+                                  </div>
 
-                              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
-                                <p className="text-sm text-red-200">{t.dnssecRisks}</p>
-                              </div>
+                                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-red-300 mb-1">{t.risks}</p>
+                                    <p className="text-sm text-red-200">{t.dnssecRisks}</p>
+                                  </div>
 
-                              <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
-                                <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
-                                <p className="text-sm text-cyan-200">{t.dnssecRecommendation}</p>
-                              </div>
+                                  <div className="p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg">
+                                    <p className="text-sm font-medium text-cyan-300 mb-1">{t.recommendation}</p>
+                                    <p className="text-sm text-cyan-200">{t.dnssecRecommendation}</p>
+                                  </div>
 
-                              <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
-                                <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
-                                <p className="text-sm text-gray-400">{t.dnssecWhere}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
+                                  <div className="p-3 bg-gray-900/80 border border-gray-700 rounded-lg">
+                                    <p className="text-sm font-medium text-gray-300 mb-1">{t.whereToConfigure}</p>
+                                    <p className="text-sm text-gray-400">{t.dnssecWhere}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </div>
+                      )}
+
+                      {/* No Issues Message */}
+                      {scanResult.dnsCheck.hasMXRecord && scanResult.dnsCheck.hasSPF && scanResult.dnsCheck.hasDMARC && scanResult.dnsCheck.hasDKIM && scanResult.dnsCheck.hasDNSSEC && (
+                        <div className="mt-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-green-400" />
+                            <p className="text-green-300 font-medium">
+                              {language === 'ru' ? 'Все DNS проверки пройдены успешно! Рекомендации не требуются.' : 'All DNS checks passed! No recommendations needed.'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {!scanResult.dnsCheck.hasMXRecord && scanResult.dnsCheck.hasDNSSEC && (
+                        <div className="mt-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-green-400" />
+                            <p className="text-green-300 font-medium">
+                              {language === 'ru' ? 'DNSSEC настроен правильно. Рекомендации по email безопасности не требуются (нет MX записей).' : 'DNSSEC is configured correctly. Email security recommendations not needed (no MX records).'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
