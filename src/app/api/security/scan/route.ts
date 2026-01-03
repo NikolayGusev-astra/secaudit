@@ -273,15 +273,33 @@ async function checkDNS(domain: string, url: string) {
     
     // Calculate score
     let score = 0
-    if (dnsCheck.aRecords.length > 0) score += 20
-    if (dnsCheck.nsRecords.length > 0) score += 10
+    let maxScore = 0
 
-    // Only check email security if MX records exist
-    if (dnsCheck.mxRecords.length > 0) {
+    // Base DNS records (always checked)
+    if (dnsCheck.dnsRecords.aRecords.length > 0) score += 20
+    maxScore += 20
+
+    if (dnsCheck.dnsRecords.nsRecords.length > 0) score += 10
+    maxScore += 10
+
+    // Email security checks (only if MX records exist)
+    if (dnsCheck.dnsRecords.mxRecords.length > 0) {
+      maxScore += 70 // SPF + DMARC + DKIM + DNSSEC + MX presence
+
       if (hasSPF) score += 20
       if (hasDMARC) score += 20
       if (hasDKIM) score += 15
+
+      if (dnsCheck.dnssec && dnsCheck.dnssec.hasDNSSEC) score += 15
+      else score += 0 // Missing DNSSEC - no bonus
+
     } else {
+      // No MX records - only check DNSSEC
+      maxScore += 50 // A + NS + DNSSEC only
+
+      if (dnsCheck.dnssec && dnsCheck.dnssec.hasDNSSEC) score += 20
+      else score += 0 // Missing DNSSEC - no bonus
+
       if (dnsCheck.offlineMode) {
         const offlineIssue = {
           type: 'CONFIGURATION' as 'MISSING_RECORD' | 'RECORD_COUNT' | 'CONFIGURATION',
@@ -292,20 +310,18 @@ async function checkDNS(domain: string, url: string) {
         }
         dnsIssues.push(offlineIssue as any)
       }
-      // Add bonus score if MX records don't exist (email not used)
-      // Email security is N/A, not a vulnerability
-      score += 10
     }
 
-    if (dnsCheck.mxRecords.length > 0) score += 15
+    // Normalize to 100 scale
+    score = Math.round((score / maxScore) * 100)
 
     return {
       ...dnsCheck,
-      hasARecord: dnsCheck.aRecords.length > 0,
-      hasAAAARecord: dnsCheck.aaaaRecords.length > 0,
-      hasMXRecord: dnsCheck.mxRecords.length > 0,
-      hasTXTRecord: dnsCheck.txtRecords.length > 0,
-      hasNSRecord: dnsCheck.nsRecords.length > 0,
+      hasARecord: dnsCheck.dnsRecords.aRecords.length > 0,
+      hasAAAARecord: dnsCheck.dnsRecords.aaaaRecords.length > 0,
+      hasMXRecord: dnsCheck.dnsRecords.mxRecords.length > 0,
+      hasTXTRecord: dnsCheck.dnsRecords.txtRecords.length > 0,
+      hasNSRecord: dnsCheck.dnsRecords.nsRecords.length > 0,
       hasSPF,
       spfValid: hasSPF,
       hasDMARC,
@@ -313,7 +329,7 @@ async function checkDNS(domain: string, url: string) {
       dmarcValid: hasDMARC,
       hasDKIM,
       hasDNSSEC: dnsCheck.dnssec && dnsCheck.dnssec.hasDNSSEC,
-      dnsRecords: dnsCheck.aRecords.length + dnsCheck.aaaaRecords.length,
+      dnsRecords: dnsCheck.dnsRecords.aRecords.length + dnsCheck.dnsRecords.aaaaRecords.length,
       issues: dnsIssues,
       score,
       offlineMode: dnsCheck.offlineMode,
