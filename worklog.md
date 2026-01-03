@@ -227,6 +227,26 @@ Updated all .clinerules/ instructions to reflect the actual project state:
 1. 4826638 - Fix UI: Show SPF/DMARC/DKIM only when MX records exist
 2. 6188561 - Update .clinerules/ instructions for Security Audit Tool (no DB, Next.js 15, React 19, shadcn/ui)
 
+---
+Task ID: 7
+Agent: Cline
+Task: Fix DNS and Headers recommendations display logic
+
+Work Log:
+- Fixed DNS recommendations: now show only when problems exist
+  - SPF/DMARC/DKIM only shown if MX records exist AND they are missing
+  - DNSSEC only shown if it's missing
+  - If all checks pass: show "All DNS checks passed!" message
+- Fixed Headers recommendations: now show only for missing headers
+  - CSP/HSTS/X-Frame-Options only shown if missing
+  - If all headers present: show "All security headers configured correctly!" message
+
+Stage Summary:
+Fixed the issue where DNS and Headers recommendations were always displayed. Now they only appear when there are actual problems, making the UI cleaner and more focused on actionable items.
+
+**Git commits:**
+1. 5e5df09 - fix: показывать DNS и Headers рекомендации только при наличии проблем
+
 **Changes pushed to origin/main.**
 
 ---
